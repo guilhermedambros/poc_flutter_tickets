@@ -122,12 +122,17 @@ class _VendaPageState extends State<VendaPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.remove),
+                        icon: const Icon(Icons.remove, size: 32),
+                        iconSize: 40,
                         onPressed: () => _decrement(ticket['id'] as int),
                       ),
-                      Text('$qtd'),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text('$qtd', style: const TextStyle(fontSize: 20)),
+                      ),
                       IconButton(
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(Icons.add, size: 32),
+                        iconSize: 40,
                         onPressed: () => _increment(ticket['id'] as int),
                       ),
                     ],
