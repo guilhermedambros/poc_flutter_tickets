@@ -14,6 +14,7 @@ class _CrudTicketsPageState extends State<CrudTicketsPage> {
   final _formKey = GlobalKey<FormState>();
   final _descController = TextEditingController();
   int? _editingId;
+  bool _active = true;
 
   @override
   void initState() {
@@ -41,12 +42,13 @@ class _CrudTicketsPageState extends State<CrudTicketsPage> {
       return;
     }
     if (_editingId == null) {
-      await db.insert('tickets', {'description': desc});
+      await db.insert('tickets', {'description': desc, 'active': _active ? 1 : 0});
     } else {
-      await db.update('tickets', {'description': desc}, where: 'id = ?', whereArgs: [_editingId]);
+      await db.update('tickets', {'description': desc, 'active': _active ? 1 : 0}, where: 'id = ?', whereArgs: [_editingId]);
     }
     _descController.clear();
     _editingId = null;
+    _active = true;
     await _loadTickets();
   }
 
@@ -54,6 +56,7 @@ class _CrudTicketsPageState extends State<CrudTicketsPage> {
     setState(() {
       _descController.text = ticket['description'] ?? '';
       _editingId = ticket['id'] as int;
+      _active = (ticket['active'] ?? 1) == 1;
     });
   }
 
@@ -85,6 +88,20 @@ class _CrudTicketsPageState extends State<CrudTicketsPage> {
                           ),
                         ),
                         const SizedBox(width: 8),
+                        Column(
+                          children: [
+                            const Text('Ativo'),
+                            Switch(
+                              value: _active,
+                              onChanged: (val) {
+                                setState(() {
+                                  _active = val;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: _saveTicket,
                           child: Text(_editingId == null ? 'Adicionar' : 'Salvar'),
@@ -98,7 +115,12 @@ class _CrudTicketsPageState extends State<CrudTicketsPage> {
                       itemCount: tickets.length,
                       itemBuilder: (context, index) {
                         final ticket = tickets[index];
+                        final isActive = (ticket['active'] ?? 1) == 1;
                         return ListTile(
+                          leading: Icon(
+                            isActive ? Icons.check_circle : Icons.cancel,
+                            color: isActive ? Colors.green : Colors.red,
+                          ),
                           title: Text(ticket['description'] ?? ''),
                           trailing: IconButton(
                             icon: const Icon(Icons.edit),

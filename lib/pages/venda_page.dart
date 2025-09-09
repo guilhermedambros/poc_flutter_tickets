@@ -24,7 +24,12 @@ class _VendaPageState extends State<VendaPage> {
 
   Future<void> _loadTickets() async {
     final db = await AppDatabase.instance.database;
-    final result = await db.query('tickets');
+    final result = await db.query(
+      'tickets',
+      where: 'active = ?',
+      whereArgs: [1],
+      orderBy: 'description COLLATE NOCASE ASC',
+    );
     setState(() {
       tickets = result;
       for (var ticket in tickets) {

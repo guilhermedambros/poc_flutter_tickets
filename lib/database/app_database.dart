@@ -29,6 +29,7 @@ class AppDatabase {
       CREATE TABLE tickets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description VARCHAR(100) NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
@@ -51,17 +52,17 @@ class AppDatabase {
       )
     ''');
     // Inserts iniciais para tickets
-    await db.insert('tickets', {'description': 'Caipira'});
-    await db.insert('tickets', {'description': 'Refri lata'});
-    await db.insert('tickets', {'description': 'Refri 600'});
-    await db.insert('tickets', {'description': 'Cerveja'});
-    await db.insert('tickets', {'description': 'Pastel'});
-    await db.insert('tickets', {'description': 'Fritas'});
-    await db.insert('tickets', {'description': 'Chocolate'});
-    await db.insert('tickets', {'description': 'Tonica lata'});
-    await db.insert('tickets', {'description': 'Água'});
-    await db.insert('tickets', {'description': 'Refri 2L'});
-    await db.insert('tickets', {'description': 'Salgadinho'});
+  await db.insert('tickets', {'description': 'Caipira', 'active': 1});
+  await db.insert('tickets', {'description': 'Refri lata', 'active': 1});
+  await db.insert('tickets', {'description': 'Refri 600', 'active': 1});
+  await db.insert('tickets', {'description': 'Cerveja', 'active': 1});
+  await db.insert('tickets', {'description': 'Pastel', 'active': 1});
+  await db.insert('tickets', {'description': 'Fritas', 'active': 1});
+  await db.insert('tickets', {'description': 'Chocolate', 'active': 1});
+  await db.insert('tickets', {'description': 'Tonica lata', 'active': 1});
+  await db.insert('tickets', {'description': 'Água', 'active': 1});
+  await db.insert('tickets', {'description': 'Refri 2L', 'active': 1});
+  await db.insert('tickets', {'description': 'Salgadinho', 'active': 1});
     
   }
 
