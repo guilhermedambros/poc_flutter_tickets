@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'pages/settings_page.dart';
 
 import 'pages/venda_page.dart';
+
+import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import 'package:intl/intl.dart';
+import 'database/app_database.dart';
 import 'pages/crud_tickets_page.dart';
 
 void main() {
@@ -54,6 +58,53 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+
+  Future<void> _imprimirRelatorioVendas() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+    final db = await AppDatabase.instance.database;
+    final bluetooth = BlueThermalPrinter.instance;
+    final relatorio = await db.rawQuery('''
+      SELECT 
+        DATE(v.created_at) as data,
+        t.description,
+        SUM(v.amount) as total
+      FROM vendas v
+      JOIN tickets t ON t.id = v.ticket_id
+      GROUP BY data, t.description
+      ORDER BY data DESC, t.description ASC
+    ''');
+    if (relatorio.isEmpty) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma venda encontrada.')));
+      return;
+    }
+    await bluetooth.printNewLine();
+    await bluetooth.printCustom('RELATÓRIO DE VENDAS', 1, 1);
+    await bluetooth.printNewLine();
+    String? lastDate;
+    for (final row in relatorio) {
+      final data = row['data'] as String?;
+      final desc = row['description'] as String?;
+      final total = row['total'] ?? 0;
+      if (data != lastDate) {
+        await bluetooth.printNewLine();
+        await bluetooth.printCustom('Data: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(data!))}', 0, 0);
+        await bluetooth.printCustom('------------------------------', 0, 0);
+        lastDate = data;
+      }
+      // Formato de tabela: descrição alinhada à esquerda, quantidade à direita
+      final line = '${(desc ?? '').padRight(20).substring(0, 20)}${total.toString().padLeft(6)}';
+      await bluetooth.printCustom(line, 0, 0);
+    }
+    await bluetooth.printNewLine();
+    await bluetooth.paperCut();
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Relatório impresso!')));
+  }
   // Nenhuma funcionalidade padrão
 
   @override
@@ -123,6 +174,21 @@ class _MyHomePageState extends State<MyHomePage> {
                       MaterialPageRoute(builder: (context) => const CrudTicketsPage()),
                     );
                   },
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.bar_chart, size: 28),
+                  label: const Text(
+                    'Relatório de Vendas',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                  ),
+                  onPressed: _imprimirRelatorioVendas,
                 ),
               ),
             ],
