@@ -71,7 +71,9 @@ class _MyHomePageState extends State<MyHomePage> {
       SELECT 
         DATE(v.created_at) as data,
         t.description,
-        SUM(v.amount) as total
+        SUM(v.amount) as total,
+        SUM(v.amount * COALESCE(v.valor_unitario, 0)) as soma_reais,
+        CASE WHEN SUM(v.amount) > 0 THEN SUM(v.amount * COALESCE(v.valor_unitario, 0)) / SUM(v.amount) ELSE 0 END as valor_unitario_medio
       FROM vendas v
       JOIN tickets t ON t.id = v.ticket_id
       GROUP BY data, t.description
@@ -82,24 +84,42 @@ class _MyHomePageState extends State<MyHomePage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma venda encontrada.')));
       return;
     }
-    await bluetooth.printNewLine();
     await bluetooth.printCustom('RELATÓRIO DE VENDAS', 1, 1);
     await bluetooth.printNewLine();
     String? lastDate;
+    double totalGeral = 0;
     for (final row in relatorio) {
       final data = row['data'] as String?;
       final desc = row['description'] as String?;
-      final total = row['total'] ?? 0;
+      final quantidade = row['total'] ?? 0;
+      var somaReais = row['soma_reais'];
+      double somaReaisNum;
+      if (somaReais == null) {
+        somaReaisNum = 0;
+      } else if (somaReais is int) {
+        somaReaisNum = somaReais.toDouble();
+      } else if (somaReais is double) {
+        somaReaisNum = somaReais;
+      } else if (somaReais is String) {
+        somaReaisNum = double.tryParse(somaReais) ?? 0;
+      } else {
+        somaReaisNum = 0;
+      }
+      totalGeral += somaReaisNum;
       if (data != lastDate) {
         await bluetooth.printNewLine();
         await bluetooth.printCustom('Data: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(data!))}', 0, 0);
         await bluetooth.printCustom('------------------------------', 0, 0);
         lastDate = data;
       }
-      // Formato de tabela: descrição alinhada à esquerda, quantidade à direita
-      final line = '${(desc ?? '').padRight(20).substring(0, 20)}${total.toString().padLeft(6)}';
+      // Linha: descrição, quantidade, valor total
+      final line = '${(desc ?? '').padRight(12).substring(0, 12)} ${quantidade.toString().padLeft(2)}  R\$ ${somaReaisNum.toStringAsFixed(2).padLeft(2)}';
+      print('[RELATORIO VENDA] $line');
       await bluetooth.printCustom(line, 0, 0);
     }
+    // Imprime total geral ao final
+    await bluetooth.printCustom('------------------------------', 0, 0);
+    await bluetooth.printCustom('TOTAL GERAL: R\$ ${totalGeral.toStringAsFixed(2)}', 0, 0);
     await bluetooth.printNewLine();
     await bluetooth.paperCut();
     Navigator.of(context).pop();

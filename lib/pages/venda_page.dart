@@ -65,9 +65,11 @@ class _VendaPageState extends State<VendaPage> {
     final db = await AppDatabase.instance.database;
     for (var ticket in selected) {
       final qtd = quantities[ticket['id']] ?? 0;
+      final valorUnitario = ticket['valor'] ?? 0;
       await db.insert('vendas', {
         'ticket_id': ticket['id'],
         'amount': qtd,
+        'valor_unitario': valorUnitario,
         // created_at será preenchido automaticamente
       });
     }
@@ -76,10 +78,19 @@ class _VendaPageState extends State<VendaPage> {
     await bluetooth.printNewLine();
     for (var ticket in selected) {
       final qtd = quantities[ticket['id']] ?? 0;
+      final valorUnitario = ticket['valor'] ?? 0;
       for (int i = 0; i < qtd; i++) {
+        // Centralizar descrição e valor unitário, um abaixo do outro
+        String descricao = (ticket['description'] ?? '').toString().toUpperCase();
+        String valorStr = 'R\$ ${valorUnitario.toStringAsFixed(2)}';
         await bluetooth.printCustom(
-          (ticket['description'] ?? '').toString().toUpperCase(),
+          descricao,
           2, // fonte maior
+          1  // centralizado
+        );
+        await bluetooth.printCustom(
+          valorStr,
+          0, // fonte menor
           1  // centralizado
         );
         await bluetooth.printNewLine();
@@ -105,6 +116,12 @@ class _VendaPageState extends State<VendaPage> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    double totalVenda = 0;
+    for (var ticket in tickets) {
+      final qtd = quantities[ticket['id']] ?? 0;
+      final valor = ticket['valor'] ?? 0;
+      totalVenda += qtd * valor;
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Venda')),
@@ -139,6 +156,13 @@ class _VendaPageState extends State<VendaPage> {
                   ),
                 );
               },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              'Total da venda: R\$ ${totalVenda.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
           ),
           Padding(

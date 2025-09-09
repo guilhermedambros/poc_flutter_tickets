@@ -29,6 +29,7 @@ class AppDatabase {
       CREATE TABLE tickets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description VARCHAR(100) NOT NULL,
+        valor REAL NOT NULL DEFAULT 0,
         active INTEGER NOT NULL DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -38,6 +39,7 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         ticket_id INTEGER NOT NULL,
         amount INTEGER,
+        valor_unitario REAL NOT NULL DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(ticket_id) REFERENCES tickets(id)
       )
@@ -52,17 +54,17 @@ class AppDatabase {
       )
     ''');
     // Inserts iniciais para tickets
-  await db.insert('tickets', {'description': 'Caipira', 'active': 1});
-  await db.insert('tickets', {'description': 'Refri lata', 'active': 1});
-  await db.insert('tickets', {'description': 'Refri 600', 'active': 1});
-  await db.insert('tickets', {'description': 'Cerveja', 'active': 1});
-  await db.insert('tickets', {'description': 'Pastel', 'active': 1});
-  await db.insert('tickets', {'description': 'Fritas', 'active': 1});
-  await db.insert('tickets', {'description': 'Chocolate', 'active': 1});
-  await db.insert('tickets', {'description': 'Tonica lata', 'active': 1});
-  await db.insert('tickets', {'description': 'Água', 'active': 1});
-  await db.insert('tickets', {'description': 'Refri 2L', 'active': 1});
-  await db.insert('tickets', {'description': 'Salgadinho', 'active': 1});
+  await db.insert('tickets', {'description': 'Caipira', 'valor': 8, 'active': 1});
+  await db.insert('tickets', {'description': 'Refri lata', 'valor': 5, 'active': 1});
+  await db.insert('tickets', {'description': 'Refri 600', 'valor': 8, 'active': 1});
+  await db.insert('tickets', {'description': 'Cerveja', 'valor': 8, 'active': 1});
+  await db.insert('tickets', {'description': 'Pastel', 'valor': 10, 'active': 1});
+  await db.insert('tickets', {'description': 'Fritas', 'valor': 12, 'active': 1});
+  await db.insert('tickets', {'description': 'Chocolate', 'valor': 5, 'active': 1});
+  await db.insert('tickets', {'description': 'Tonica lata', 'valor': 5, 'active': 1});
+  await db.insert('tickets', {'description': 'Água', 'valor': 5, 'active': 1});
+  await db.insert('tickets', {'description': 'Refri 2L', 'valor': 15, 'active': 1});
+  await db.insert('tickets', {'description': 'Salgadinho', 'valor': 7, 'active': 1});
     
   }
 
