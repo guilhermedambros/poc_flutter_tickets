@@ -100,6 +100,7 @@ class _VendaPageState extends State<VendaPage> {
         await bluetooth.printCustom('------------------------------', 1, 1);
         await bluetooth.printNewLine();
         await bluetooth.printNewLine(); // dobra espaçamento entre tickets
+        
       }
     }
     await bluetooth.paperCut();

@@ -59,7 +59,89 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
-  Future<void> _imprimirRelatorioVendas() async {
+  Future<void> _selecionarDatasEImprimirRelatorio() async {
+    final db = await AppDatabase.instance.database;
+    // Buscar todas as datas distintas com vendas
+    final datasResult = await db.rawQuery('''
+      SELECT DISTINCT DATE(created_at) as data
+      FROM vendas
+      ORDER BY data DESC
+    ''');
+    if (datasResult.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma venda encontrada.')));
+      return;
+    }
+    List<String> datas = datasResult.map((row) => row['data'] as String).toList();
+    List<String> selecionadas = [];
+
+    // Exibir modal de seleção
+    final selecionadasResult = await showDialog<List<String>>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Selecione os dias para o relatório'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                bool todosSelecionados = selecionadas.length == datas.length;
+                return ListView(
+                  shrinkWrap: true,
+                  children: [
+                    CheckboxListTile(
+                      title: const Text('Selecionar todos'),
+                      value: todosSelecionados,
+                      onChanged: (checked) {
+                        setState(() {
+                          if (checked == true) {
+                            selecionadas = List.from(datas);
+                          } else {
+                            selecionadas.clear();
+                          }
+                        });
+                      },
+                    ),
+                    ...datas.map((data) {
+                      final selecionada = selecionadas.contains(data);
+                      return CheckboxListTile(
+                        title: Text(DateFormat('dd/MM/yyyy').format(DateTime.parse(data))),
+                        value: selecionada,
+                        onChanged: (checked) {
+                          setState(() {
+                            if (checked == true) {
+                              selecionadas.add(data);
+                            } else {
+                              selecionadas.remove(data);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ],
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(selecionadas),
+              child: const Text('Imprimir'),
+            ),
+          ],
+        );
+      },
+    );
+    if (selecionadasResult == null || selecionadasResult.isEmpty) {
+      return;
+    }
+    await _imprimirRelatorioVendas(datasSelecionadas: selecionadasResult);
+  }
+
+  Future<void> _imprimirRelatorioVendas({List<String>? datasSelecionadas}) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -67,6 +149,13 @@ class _MyHomePageState extends State<MyHomePage> {
     );
     final db = await AppDatabase.instance.database;
     final bluetooth = BlueThermalPrinter.instance;
+    // Adiciona filtro de datas se necessário
+    String whereDatas = '';
+    List<dynamic> whereArgs = [];
+    if (datasSelecionadas != null && datasSelecionadas.isNotEmpty) {
+      whereDatas = 'WHERE DATE(v.created_at) IN (${List.filled(datasSelecionadas.length, '?').join(',')})';
+      whereArgs = datasSelecionadas;
+    }
     final relatorio = await db.rawQuery('''
       SELECT 
         DATE(v.created_at) as data,
@@ -76,9 +165,10 @@ class _MyHomePageState extends State<MyHomePage> {
         CASE WHEN SUM(v.amount) > 0 THEN SUM(v.amount * COALESCE(v.valor_unitario, 0)) / SUM(v.amount) ELSE 0 END as valor_unitario_medio
       FROM vendas v
       JOIN tickets t ON t.id = v.ticket_id
+      $whereDatas
       GROUP BY data, t.description
       ORDER BY data DESC, t.description ASC
-    ''');
+    ''', whereArgs);
     if (relatorio.isEmpty) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma venda encontrada.')));
@@ -88,6 +178,7 @@ class _MyHomePageState extends State<MyHomePage> {
     await bluetooth.printNewLine();
     String? lastDate;
     double totalGeral = 0;
+    double totalDia = 0;
     for (final row in relatorio) {
       final data = row['data'] as String?;
       final desc = row['description'] as String?;
@@ -105,7 +196,13 @@ class _MyHomePageState extends State<MyHomePage> {
       } else {
         somaReaisNum = 0;
       }
-      totalGeral += somaReaisNum;
+      if (data != lastDate && lastDate != null) {
+        // Imprime total do dia anterior
+        await bluetooth.printCustom('------------------------------', 0, 0);
+        await bluetooth.printCustom('TOTAL DO DIA: R\$ ' + totalDia.toStringAsFixed(2), 0, 0);
+        await bluetooth.printNewLine();
+        totalDia = 0;
+      }
       if (data != lastDate) {
         await bluetooth.printNewLine();
         await bluetooth.printCustom('Data: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(data!))}', 0, 0);
@@ -116,7 +213,13 @@ class _MyHomePageState extends State<MyHomePage> {
       final line = '${(desc ?? '').padRight(12).substring(0, 12)} ${quantidade.toString().padLeft(2)}  R\$ ${somaReaisNum.toStringAsFixed(2).padLeft(2)}';
       print('[RELATORIO VENDA] $line');
       await bluetooth.printCustom(line, 0, 0);
+      totalGeral += somaReaisNum;
+      totalDia += somaReaisNum;
     }
+    // Imprime total do último dia
+    await bluetooth.printCustom('------------------------------', 0, 0);
+    await bluetooth.printCustom('TOTAL DO DIA: R\$ ' + totalDia.toStringAsFixed(2), 0, 0);
+    await bluetooth.printNewLine();
     // Imprime total geral ao final
     await bluetooth.printCustom('------------------------------', 0, 0);
     await bluetooth.printCustom('TOTAL GERAL: R\$ ${totalGeral.toStringAsFixed(2)}', 0, 0);
@@ -208,7 +311,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                   ),
-                  onPressed: _imprimirRelatorioVendas,
+                  onPressed: _selecionarDatasEImprimirRelatorio,
                 ),
               ),
             ],
