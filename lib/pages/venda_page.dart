@@ -139,19 +139,27 @@ class _VendaPageState extends State<VendaPage> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove, size: 32),
-                        iconSize: 40,
-                        onPressed: () => _decrement(ticket['id'] as int),
+                      SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: IconButton(
+                          icon: const Icon(Icons.remove, size: 40),
+                          iconSize: 48,
+                          onPressed: () => _decrement(ticket['id'] as int),
+                        ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Text('$qtd', style: const TextStyle(fontSize: 20)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                        child: Text('$qtd', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.add, size: 32),
-                        iconSize: 40,
-                        onPressed: () => _increment(ticket['id'] as int),
+                      SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: IconButton(
+                          icon: const Icon(Icons.add, size: 40),
+                          iconSize: 48,
+                          onPressed: () => _increment(ticket['id'] as int),
+                        ),
                       ),
                     ],
                   ),
