@@ -134,8 +134,14 @@ class _VendaPageState extends State<VendaPage> {
               itemBuilder: (context, index) {
                 final ticket = tickets[index];
                 final qtd = quantities[ticket['id']] ?? 0;
+                final valor = ticket['valor'] ?? 0;
                 return ListTile(
-                  title: Text(ticket['description'] ?? ''),
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(ticket['description'] ?? '')),
+                      Text('R\$ ${valor.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
