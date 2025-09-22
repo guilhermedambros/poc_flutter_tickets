@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +12,16 @@ class VendaPage extends StatefulWidget {
 }
 
 class _VendaPageState extends State<VendaPage> {
+
+  Future<List<int>> _carregarFontesImpressao() async {
+    // [desc, valor, hora]
+    final prefs = await SharedPreferences.getInstance();
+    return [
+      prefs.getInt('font_ticket_desc') ?? 2,
+      prefs.getInt('font_ticket_valor') ?? 0,
+      prefs.getInt('font_ticket_hora') ?? 0,
+    ];
+  }
 
   Future<void> _mostrarUltimaVenda(BuildContext context) async {
     final db = await AppDatabase.instance.database;
@@ -113,11 +124,16 @@ class _VendaPageState extends State<VendaPage> {
   }
 
   Future<void> _printTickets() async {
-  final now = DateTime.now();
-  final dataHora = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
+    final now = DateTime.now();
+    final dataHora = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
     final selected = tickets.where((t) => (quantities[t['id']] ?? 0) > 0).toList();
     final db = await AppDatabase.instance.database;
     double totalVenda = 0;
+    // Carregar fontes
+    final fontes = await _carregarFontesImpressao();
+    final fonteDesc = fontes[0];
+    final fonteValor = fontes[1];
+    final fonteHora = fontes[2];
     for (var ticket in selected) {
       final qtd = quantities[ticket['id']] ?? 0;
       final valorUnitario = ticket['valor'] ?? 0;
@@ -141,17 +157,17 @@ class _VendaPageState extends State<VendaPage> {
         String valorStr = 'R\$ ${valorUnitario.toStringAsFixed(2)}';
         await bluetooth.printCustom(
           descricao,
-          2, // fonte maior
+          fonteDesc, // fonte configurável
           1  // centralizado
         );
         await bluetooth.printCustom(
           valorStr,
-          0, // fonte menor
+          fonteValor, // fonte configurável
           1  // centralizado
         );
         await bluetooth.printNewLine();
-        // Data e hora centralizada, fonte menor
-        await bluetooth.printCustom(dataHora, 0, 1);
+        // Data e hora centralizada, fonte configurável
+        await bluetooth.printCustom(dataHora, fonteHora, 1);
         await bluetooth.printNewLine();
         await bluetooth.printCustom('------------------------------', 1, 1);
         if(i < (qtd - 1)) { // se não for o último item daquela quantidade
@@ -161,7 +177,7 @@ class _VendaPageState extends State<VendaPage> {
       }
     }
     // Imprimir total da venda ao final
-    await bluetooth.printCustom('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}', 0, 1);
+    await bluetooth.printCustom('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}', fonteValor, 1);
 
     await bluetooth.paperCut();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venda salva e impressão enviada!')));

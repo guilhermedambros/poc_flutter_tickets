@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../database/app_database.dart';
 
@@ -15,6 +16,16 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+
+  Future<void> _salvarFonte(String key, int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(key, value);
+  }
+
+  Future<int> _carregarFonte(String key, int padrao) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(key) ?? padrao;
+  }
 
   Future<void> _eliminarVendas(BuildContext context) async {
     final db = await AppDatabase.instance.database;
@@ -231,6 +242,77 @@ class _SettingsPageState extends State<SettingsPage> {
           if (_selectedDevice != null)
             Text('Selecionado: ${_selectedDevice!.name ?? _selectedDevice!.address}'),
           const SizedBox(height: 32),
+          // Configuração de fonte de impressão
+          FutureBuilder<List<int>>(
+            future: Future.wait([
+              _carregarFonte('font_ticket_desc', 2),
+              _carregarFonte('font_ticket_valor', 0),
+              _carregarFonte('font_ticket_hora', 0),
+            ]),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox();
+              final fontes = snapshot.data!;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Tamanho da fonte de impressão:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Text('Descrição:'),
+                      const SizedBox(width: 8),
+                      DropdownButton<int>(
+                        value: fontes[0],
+                        items: const [
+                          DropdownMenuItem(value: 0, child: Text('Pequena')),
+                          DropdownMenuItem(value: 1, child: Text('Média')),
+                          DropdownMenuItem(value: 2, child: Text('Grande')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) _salvarFonte('font_ticket_desc', v).then((_) => setState(() {}));
+                        },
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Text('Valor:'),
+                      const SizedBox(width: 8),
+                      DropdownButton<int>(
+                        value: fontes[1],
+                        items: const [
+                          DropdownMenuItem(value: 0, child: Text('Pequena')),
+                          DropdownMenuItem(value: 1, child: Text('Média')),
+                          DropdownMenuItem(value: 2, child: Text('Grande')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) _salvarFonte('font_ticket_valor', v).then((_) => setState(() {}));
+                        },
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Text('Hora:'),
+                      const SizedBox(width: 8),
+                      DropdownButton<int>(
+                        value: fontes[2],
+                        items: const [
+                          DropdownMenuItem(value: 0, child: Text('Pequena')),
+                          DropdownMenuItem(value: 1, child: Text('Média')),
+                          DropdownMenuItem(value: 2, child: Text('Grande')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) _salvarFonte('font_ticket_hora', v).then((_) => setState(() {}));
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
             title: const Text('Eliminar vendas'),
