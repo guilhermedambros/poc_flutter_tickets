@@ -176,8 +176,14 @@ class _VendaPageState extends State<VendaPage> {
         }
       }
     }
-    // Imprimir total da venda ao final
-    await bluetooth.printCustom('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}', fonteValor, 1);
+    // Imprimir total da venda ao final, apenas se houver mais de um ticket
+    int totalTickets = 0;
+    for (var ticket in selected) {
+      totalTickets += quantities[ticket['id']] ?? 0;
+    }
+    if (totalTickets > 1) {
+      await bluetooth.printCustom('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}', fonteValor, 1);
+    }
 
     await bluetooth.paperCut();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venda salva e impressão enviada!')));
