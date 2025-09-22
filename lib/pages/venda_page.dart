@@ -57,15 +57,12 @@ class _VendaPageState extends State<VendaPage> {
   final now = DateTime.now();
   final dataHora = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
     final selected = tickets.where((t) => (quantities[t['id']] ?? 0) > 0).toList();
-    if (selected.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecione ao menos um item.')));
-      return;
-    }
-    // Salvar vendas no banco
     final db = await AppDatabase.instance.database;
+    double totalVenda = 0;
     for (var ticket in selected) {
       final qtd = quantities[ticket['id']] ?? 0;
       final valorUnitario = ticket['valor'] ?? 0;
+      totalVenda += qtd * valorUnitario;
       await db.insert('vendas', {
         'ticket_id': ticket['id'],
         'amount': qtd,
@@ -98,11 +95,15 @@ class _VendaPageState extends State<VendaPage> {
         await bluetooth.printCustom(dataHora, 0, 1);
         await bluetooth.printNewLine();
         await bluetooth.printCustom('------------------------------', 1, 1);
-        await bluetooth.printNewLine();
-        await bluetooth.printNewLine(); // dobra espaçamento entre tickets
-        
+        if(i < (qtd - 1)) { // se não for o último item daquela quantidade
+          await bluetooth.printNewLine();
+          await bluetooth.printNewLine(); // dobra espaçamento entre tickets
+        }
       }
     }
+    // Imprimir total da venda ao final
+    await bluetooth.printCustom('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}', 0, 1);
+
     await bluetooth.paperCut();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venda salva e impressão enviada!')));
     // Zerar quantidades para nova venda
