@@ -11,6 +11,65 @@ class VendaPage extends StatefulWidget {
 }
 
 class _VendaPageState extends State<VendaPage> {
+
+  Future<void> _mostrarUltimaVenda(BuildContext context) async {
+    final db = await AppDatabase.instance.database;
+    // Busca a data/hora da última venda
+    final ultimaVendaResult = await db.rawQuery('''
+      SELECT MAX(created_at) as data
+      FROM vendas
+    ''');
+    if (ultimaVendaResult.isEmpty || ultimaVendaResult.first['data'] == null) {
+      showDialog(
+        context: context,
+        builder: (context) => const AlertDialog(
+          title: Text('Última venda'),
+          content: Text('Nenhuma venda encontrada.'),
+        ),
+      );
+      return;
+    }
+    final dataUltimaVenda = ultimaVendaResult.first['data'] as String;
+    // Busca os itens da última venda
+    final itens = await db.rawQuery('''
+      SELECT t.description, v.amount, v.valor_unitario
+      FROM vendas v
+      JOIN tickets t ON t.id = v.ticket_id
+      WHERE v.created_at = ?
+    ''', [dataUltimaVenda]);
+    double total = 0;
+    for (var item in itens) {
+      final qtd = item['amount'] ?? 0;
+      final valor = item['valor_unitario'] ?? 0;
+      total += (qtd is int ? qtd : int.tryParse(qtd.toString()) ?? 0) * (valor is num ? valor : double.tryParse(valor.toString()) ?? 0);
+    }
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Última venda realizada'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Data/hora: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(dataUltimaVenda))}'),
+            const SizedBox(height: 12),
+            ...itens.map((item) => Text(
+              '${item['description']}  x${item['amount']}  R\$ ${(item['valor_unitario'] as num).toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 16),
+            )),
+            const SizedBox(height: 12),
+            Text('Total: R\$ ${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
   final BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
   List<Map<String, dynamic>> tickets = [];
   Map<int, int> quantities = {};
@@ -126,7 +185,16 @@ class _VendaPageState extends State<VendaPage> {
       totalVenda += qtd * valor;
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Venda')),
+      appBar: AppBar(
+        title: const Text('Venda'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Última venda',
+            onPressed: () => _mostrarUltimaVenda(context),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
