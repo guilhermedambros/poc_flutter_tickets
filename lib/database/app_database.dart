@@ -30,6 +30,7 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description VARCHAR(100) NOT NULL,
         valor REAL NOT NULL DEFAULT 0,
+        icon VARCHAR(50) DEFAULT 'local_activity',
         active INTEGER NOT NULL DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -53,18 +54,18 @@ class AppDatabase {
         FOREIGN KEY(id_usuario) REFERENCES Usuarios(id_usuario)
       )
     ''');
-    // Inserts iniciais para tickets
-  await db.insert('tickets', {'description': 'Caipira', 'valor': 8, 'active': 1});
-  await db.insert('tickets', {'description': 'Refri lata', 'valor': 5, 'active': 1});
-  await db.insert('tickets', {'description': 'Refri 600', 'valor': 8, 'active': 1});
-  await db.insert('tickets', {'description': 'Cerveja', 'valor': 8, 'active': 1});
-  await db.insert('tickets', {'description': 'Pastel', 'valor': 10, 'active': 1});
-  await db.insert('tickets', {'description': 'Fritas', 'valor': 12, 'active': 1});
-  await db.insert('tickets', {'description': 'Chocolate', 'valor': 5, 'active': 1});
-  await db.insert('tickets', {'description': 'Tonica lata', 'valor': 5, 'active': 1});
-  await db.insert('tickets', {'description': 'Água', 'valor': 5, 'active': 1});
-  await db.insert('tickets', {'description': 'Refri 2L', 'valor': 15, 'active': 1});
-  await db.insert('tickets', {'description': 'Salgadinho', 'valor': 7, 'active': 1});
+    // Inserts iniciais para tickets (com ícones)
+    await db.insert('tickets', {'description': 'Caipira', 'valor': 8, 'icon': 'egg', 'active': 1});
+    await db.insert('tickets', {'description': 'Refri lata', 'valor': 5, 'icon': 'local_drink', 'active': 1});
+    await db.insert('tickets', {'description': 'Refri 600', 'valor': 8, 'icon': 'local_drink', 'active': 1});
+    await db.insert('tickets', {'description': 'Cerveja', 'valor': 8, 'icon': 'sports_bar', 'active': 1});
+    await db.insert('tickets', {'description': 'Pastel', 'valor': 10, 'icon': 'lunch_dining', 'active': 1});
+    await db.insert('tickets', {'description': 'Fritas', 'valor': 12, 'icon': 'restaurant', 'active': 1});
+    await db.insert('tickets', {'description': 'Chocolate', 'valor': 5, 'icon': 'icecream', 'active': 1});
+    await db.insert('tickets', {'description': 'Tonica lata', 'valor': 5, 'icon': 'local_drink', 'active': 1});
+    await db.insert('tickets', {'description': 'Água', 'valor': 5, 'icon': 'water_drop', 'active': 1});
+    await db.insert('tickets', {'description': 'Refri 2L', 'valor': 15, 'icon': 'local_drink', 'active': 1});
+    await db.insert('tickets', {'description': 'Salgadinho', 'valor': 7, 'icon': 'fastfood', 'active': 1});
     
   }
 

@@ -12,6 +12,50 @@ class VendaPage extends StatefulWidget {
 }
 
 class _VendaPageState extends State<VendaPage> {
+  final List<Map<String, dynamic>> _iconOptions = [
+    {'icon': Icons.local_activity, 'name': 'local_activity'},
+    {'icon': Icons.egg, 'name': 'egg'},
+    {'icon': Icons.local_drink, 'name': 'local_drink'},
+    {'icon': Icons.sports_bar, 'name': 'sports_bar'},
+    {'icon': Icons.lunch_dining, 'name': 'lunch_dining'},
+    {'icon': Icons.restaurant, 'name': 'restaurant'},
+    {'icon': Icons.icecream, 'name': 'icecream'},
+    {'icon': Icons.water_drop, 'name': 'water_drop'},
+    {'icon': Icons.fastfood, 'name': 'fastfood'},
+    {'icon': Icons.cake, 'name': 'cake'},
+    {'icon': Icons.local_cafe, 'name': 'local_cafe'},
+    {'icon': Icons.local_pizza, 'name': 'local_pizza'},
+    {'icon': Icons.local_bar, 'name': 'local_bar'},
+    {'icon': Icons.emoji_food_beverage, 'name': 'emoji_food_beverage'},
+    {'icon': Icons.emoji_events, 'name': 'emoji_events'},
+    {'icon': Icons.emoji_nature, 'name': 'emoji_nature'},
+    {'icon': Icons.emoji_people, 'name': 'emoji_people'},
+    {'icon': Icons.emoji_symbols, 'name': 'emoji_symbols'},
+    {'icon': Icons.emoji_transportation, 'name': 'emoji_transportation'},
+    {'icon': Icons.local_dining, 'name': 'local_dining'},
+    {'icon': Icons.ramen_dining, 'name': 'ramen_dining'},
+    {'icon': Icons.set_meal, 'name': 'set_meal'},
+    {'icon': Icons.bakery_dining, 'name': 'bakery_dining'},
+    {'icon': Icons.brunch_dining, 'name': 'brunch_dining'},
+    {'icon': Icons.dinner_dining, 'name': 'dinner_dining'},
+    {'icon': Icons.wine_bar, 'name': 'wine_bar'},
+    {'icon': Icons.celebration, 'name': 'celebration'},
+    {'icon': Icons.coffee, 'name': 'coffee'},
+    {'icon': Icons.icecream_outlined, 'name': 'icecream_outlined'},
+    {'icon': Icons.cookie, 'name': 'cookie'},
+    {'icon': Icons.soup_kitchen, 'name': 'soup_kitchen'},
+    {'icon': Icons.bubble_chart, 'name': 'bubble_chart'},
+    {'icon': Icons.casino, 'name': 'casino'},
+    {'icon': Icons.sports_esports, 'name': 'sports_esports'},
+    {'icon': Icons.music_note, 'name': 'music_note'},
+    {'icon': Icons.star, 'name': 'star'},
+    {'icon': Icons.local_florist, 'name': 'local_florist'},
+    {'icon': Icons.shopping_basket, 'name': 'shopping_basket'},
+    {'icon': Icons.shopping_cart, 'name': 'shopping_cart'},
+    {'icon': Icons.card_giftcard, 'name': 'card_giftcard'},
+    {'icon': Icons.attach_money, 'name': 'attach_money'},
+    {'icon': Icons.monetization_on, 'name': 'monetization_on'},
+  ];
 
   Future<List<int>> _carregarFontesImpressao() async {
     // [desc, valor, hora]
@@ -220,45 +264,65 @@ class _VendaPageState extends State<VendaPage> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 1.3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
               itemCount: tickets.length,
               itemBuilder: (context, index) {
                 final ticket = tickets[index];
                 final qtd = quantities[ticket['id']] ?? 0;
                 final valor = ticket['valor'] ?? 0;
-                return ListTile(
-                  title: Row(
-                    children: [
-                      Expanded(child: Text(ticket['description'] ?? '')),
-                      Text('R\$ ${valor.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: IconButton(
-                          icon: const Icon(Icons.remove, size: 40),
-                          iconSize: 48,
-                          onPressed: () => _decrement(ticket['id'] as int),
+                final iconName = ticket['icon'] ?? 'local_activity';
+                final iconData = _iconOptions.firstWhere(
+                  (opt) => opt['name'] == iconName,
+                  orElse: () => _iconOptions[0],
+                )['icon'] as IconData;
+                return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(iconData, size: 32, color: Colors.blueGrey),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                ticket['description'] ?? '',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                        child: Text('$qtd', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                      ),
-                      SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: IconButton(
-                          icon: const Icon(Icons.add, size: 40),
-                          iconSize: 48,
-                          onPressed: () => _increment(ticket['id'] as int),
+                        Text('R\$ ${valor.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle, size: 32),
+                              onPressed: () => _decrement(ticket['id'] as int),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Text('$qtd', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle, size: 32),
+                              onPressed: () => _increment(ticket['id'] as int),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
