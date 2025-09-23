@@ -12,6 +12,22 @@ class VendaPage extends StatefulWidget {
 }
 
 class _VendaPageState extends State<VendaPage> {
+  // Remove acentos para impressão térmica
+  String _removerAcentos(String s) {
+    return s
+      .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
+      .replaceAll(RegExp(r'[áàâãä]'), 'a')
+      .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
+      .replaceAll(RegExp(r'[éèêë]'), 'e')
+      .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
+      .replaceAll(RegExp(r'[íìîï]'), 'i')
+      .replaceAll(RegExp(r'[ÓÒÔÕÖ]'), 'O')
+      .replaceAll(RegExp(r'[óòôõö]'), 'o')
+      .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
+      .replaceAll(RegExp(r'[úùûü]'), 'u')
+      .replaceAll(RegExp(r'[Ç]'), 'C')
+      .replaceAll(RegExp(r'[ç]'), 'c');
+  }
   final List<Map<String, dynamic>> _iconOptions = [
     {'icon': Icons.local_activity, 'name': 'local_activity'},
     {'icon': Icons.egg, 'name': 'egg'},
@@ -138,12 +154,44 @@ class _VendaPageState extends State<VendaPage> {
 
   Future<void> _loadTickets() async {
     final db = await AppDatabase.instance.database;
-    final result = await db.query(
-      'tickets',
-      where: 'active = ?',
-      whereArgs: [1],
-      orderBy: 'description COLLATE NOCASE ASC',
-    );
+    final queryResult = await db.rawQuery('''
+      SELECT * FROM tickets
+      WHERE active = 1
+    ''');
+    // Cria uma cópia mutável para ordenar
+    final result = List<Map<String, Object?>>.from(queryResult);
+    // Ordenação em memória ignorando acentos e case
+    String _normalize(String s) {
+      return s
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
+        .replaceAll(RegExp(r'[áàâãä]'), 'a')
+        .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[ÓÒÔÕÖ]'), 'O')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll(RegExp(r'[Ç]'), 'C')
+        .replaceAll(RegExp(r'[ç]'), 'c')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9 ]'), '') // remove outros caracteres especiais
+        ;
+    }
+    result.sort((a, b) {
+      final descA = _normalize((a['description'] ?? '').toString().toLowerCase());
+      final descB = _normalize((b['description'] ?? '').toString().toLowerCase());
+      return descA.compareTo(descB);
+    });
+    // Debug: print lista normalizada e ordenada
+    print('--- Lista de tickets ordenada (normalizada) ---');
+    for (var ticket in result) {
+      final original = (ticket['description'] ?? '').toString();
+      final norm = _normalize(original.toLowerCase());
+      print('[$norm] ($original)');
+    }
     setState(() {
       tickets = result;
       for (var ticket in tickets) {
@@ -197,7 +245,7 @@ class _VendaPageState extends State<VendaPage> {
       final valorUnitario = ticket['valor'] ?? 0;
       for (int i = 0; i < qtd; i++) {
         // Centralizar descrição e valor unitário, um abaixo do outro
-        String descricao = (ticket['description'] ?? '').toString().toUpperCase();
+        String descricao = _removerAcentos((ticket['description'] ?? '').toString().toUpperCase());
         String valorStr = 'R\$ ${valorUnitario.toStringAsFixed(2)}';
         await bluetooth.printCustom(
           descricao,
@@ -211,7 +259,7 @@ class _VendaPageState extends State<VendaPage> {
         );
         await bluetooth.printNewLine();
         // Data e hora centralizada, fonte configurável
-        await bluetooth.printCustom(dataHora, fonteHora, 1);
+        await bluetooth.printCustom(_removerAcentos(dataHora), fonteHora, 1);
         await bluetooth.printNewLine();
         await bluetooth.printCustom('------------------------------', 1, 1);
         if(i < (qtd - 1)) { // se não for o último item daquela quantidade
@@ -226,7 +274,7 @@ class _VendaPageState extends State<VendaPage> {
       totalTickets += quantities[ticket['id']] ?? 0;
     }
     if (totalTickets > 1) {
-      await bluetooth.printCustom('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}', fonteValor, 1);
+      await bluetooth.printCustom(_removerAcentos('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}'), fonteValor, 1);
     }
 
     await bluetooth.paperCut();
