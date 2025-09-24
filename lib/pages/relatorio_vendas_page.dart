@@ -48,9 +48,9 @@ class _RelatorioVendasPageState extends State<RelatorioVendasPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma venda encontrada.')));
       return;
     }
-    await bluetooth.printNewLine();
+    await bluetooth.printCustom('', 1, 1);
     await bluetooth.printCustom('RELATÓRIO DE VENDAS', 1, 1);
-    await bluetooth.printNewLine();
+    await bluetooth.printCustom('', 1, 1);
     String? lastDate;
     for (final row in _relatorio) {
       final data = row['data'] as String?;
@@ -83,7 +83,7 @@ class _RelatorioVendasPageState extends State<RelatorioVendasPage> {
         valorUnitarioNum = 0;
       }
       if (data != lastDate) {
-        await bluetooth.printNewLine();
+        await bluetooth.printCustom('', 1, 1);
         await bluetooth.printCustom('Vendas do dia ${DateFormat('dd/MM/yyyy').format(DateTime.parse(data!))}', 0, 0);
         lastDate = data;
       }
@@ -92,7 +92,7 @@ class _RelatorioVendasPageState extends State<RelatorioVendasPage> {
   print('[RELATORIO VENDA] $linha');
   await bluetooth.printCustom(linha, 0, 0);
     }
-    await bluetooth.printNewLine();
+    await bluetooth.printCustom('', 1, 1);
     // Soma total geral
     double totalGeral = 0;
     for (final row in _relatorio) {
@@ -107,7 +107,7 @@ class _RelatorioVendasPageState extends State<RelatorioVendasPage> {
     }
     await bluetooth.printCustom('------------------------------', 1, 1);
     await bluetooth.printCustom('TOTAL GERAL: R\$ ${totalGeral.toStringAsFixed(2)}', 1, 1);
-    await bluetooth.printNewLine();
+    await bluetooth.printCustom('', 1, 1);
     await bluetooth.paperCut();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Relatório impresso!')));
   }

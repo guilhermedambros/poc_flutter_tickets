@@ -239,7 +239,7 @@ class _VendaPageState extends State<VendaPage> {
     }
     // Linha superior
     await bluetooth.printCustom('------------------------------', 1, 1);
-    await bluetooth.printNewLine();
+    await bluetooth.printCustom('', 1, 1);
     for (var ticket in selected) {
       final qtd = quantities[ticket['id']] ?? 0;
       final valorUnitario = ticket['valor'] ?? 0;
@@ -257,14 +257,14 @@ class _VendaPageState extends State<VendaPage> {
           fonteValor, // fonte configurável
           1  // centralizado
         );
-        await bluetooth.printNewLine();
+        await bluetooth.printCustom('', 1, 1);
         // Data e hora centralizada, fonte configurável
         await bluetooth.printCustom(_removerAcentos(dataHora), fonteHora, 1);
-        await bluetooth.printNewLine();
+        await bluetooth.printCustom('', 1, 1);
         await bluetooth.printCustom('------------------------------', 1, 1);
         if(i < (qtd - 1)) { // se não for o último item daquela quantidade
-          await bluetooth.printNewLine();
-          await bluetooth.printNewLine(); // dobra espaçamento entre tickets
+          await bluetooth.printCustom('', 1, 1);
+          await bluetooth.printCustom('', 1, 1); // dobra espaçamento entre tickets
         }
       }
     }
@@ -276,6 +276,9 @@ class _VendaPageState extends State<VendaPage> {
     if (totalTickets > 1) {
       await bluetooth.printCustom(_removerAcentos('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}'), fonteValor, 1);
     }
+    await bluetooth.printCustom('', 1, 1);
+    await bluetooth.printCustom('', 1, 1); 
+    await bluetooth.printCustom('', 1, 1);
 
     await bluetooth.paperCut();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venda salva e impressão enviada!')));

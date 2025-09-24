@@ -142,138 +142,151 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _imprimirRelatorioVendas({List<String>? datasSelecionadas}) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-    final db = await AppDatabase.instance.database;
-    final bluetooth = BlueThermalPrinter.instance;
-    // Adiciona filtro de datas se necessário
-    String whereDatas = '';
-    List<dynamic> whereArgs = [];
-    if (datasSelecionadas != null && datasSelecionadas.isNotEmpty) {
-      whereDatas = 'WHERE DATE(v.created_at) IN (${List.filled(datasSelecionadas.length, '?').join(',')})';
-      whereArgs = datasSelecionadas;
-    }
-    final relatorio = await db.rawQuery('''
-      SELECT 
-        DATE(v.created_at) as data,
-        t.description,
-        SUM(v.amount) as total,
-        SUM(v.amount * COALESCE(v.valor_unitario, 0)) as soma_reais,
-        CASE WHEN SUM(v.amount) > 0 THEN SUM(v.amount * COALESCE(v.valor_unitario, 0)) / SUM(v.amount) ELSE 0 END as valor_unitario_medio
-      FROM vendas v
-      JOIN tickets t ON t.id = v.ticket_id
-      ${whereDatas.isNotEmpty ? whereDatas : ''}
-      GROUP BY data, t.description
-    ''', whereArgs);
-    // Ordenação em memória: datas decrescente, descrição sem acento/case
-    String _normalize(String s) {
-      return s
-        .trim()
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
-        .replaceAll(RegExp(r'[áàâãä]'), 'a')
-        .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
-        .replaceAll(RegExp(r'[éèêë]'), 'e')
-        .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
-        .replaceAll(RegExp(r'[íìîï]'), 'i')
-        .replaceAll(RegExp(r'[ÓÒÔÕÖ]'), 'O')
-        .replaceAll(RegExp(r'[óòôõö]'), 'o')
-        .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
-        .replaceAll(RegExp(r'[úùûü]'), 'u')
-        .replaceAll(RegExp(r'[Ç]'), 'C')
-        .replaceAll(RegExp(r'[ç]'), 'c')
-        .replaceAll(RegExp(r'[^a-zA-Z0-9 ]'), '')
-        ;
-    }
-    relatorio.sort((a, b) {
-      // Ordena por data decrescente
-      final dataA = a['data'] as String? ?? '';
-      final dataB = b['data'] as String? ?? '';
-      final cmpData = dataB.compareTo(dataA);
-      if (cmpData != 0) return cmpData;
-      // Ordena por descrição normalizada
-      final descA = _normalize((a['description'] ?? '').toString().toLowerCase());
-      final descB = _normalize((b['description'] ?? '').toString().toLowerCase());
-      return descA.compareTo(descB);
-    });
-    if (relatorio.isEmpty) {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      final db = await AppDatabase.instance.database;
+      final bluetooth = BlueThermalPrinter.instance;
+      // Adiciona filtro de datas se necessário
+      String whereDatas = '';
+      List<dynamic> whereArgs = [];
+      if (datasSelecionadas != null && datasSelecionadas.isNotEmpty) {
+        whereDatas = 'WHERE DATE(v.created_at) IN (${List.filled(datasSelecionadas.length, '?').join(',')})';
+        whereArgs = datasSelecionadas;
+      }
+      final relatorioResult = await db.rawQuery('''
+        SELECT 
+          DATE(v.created_at) as data,
+          t.description,
+          SUM(v.amount) as total,
+          SUM(v.amount * COALESCE(v.valor_unitario, 0)) as soma_reais,
+          CASE WHEN SUM(v.amount) > 0 THEN SUM(v.amount * COALESCE(v.valor_unitario, 0)) / SUM(v.amount) ELSE 0 END as valor_unitario_medio
+        FROM vendas v
+        JOIN tickets t ON t.id = v.ticket_id
+        ${whereDatas.isNotEmpty ? whereDatas : ''}
+        GROUP BY data, t.description
+      ''', whereArgs);
+      // Cria lista mutável para ordenar
+      final relatorio = List<Map<String, Object?>>.from(relatorioResult);
+      // Ordenação em memória: datas decrescente, descrição sem acento/case
+      String _normalize(String s) {
+        return s
+          .trim()
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
+          .replaceAll(RegExp(r'[áàâãä]'), 'a')
+          .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
+          .replaceAll(RegExp(r'[éèêë]'), 'e')
+          .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
+          .replaceAll(RegExp(r'[íìîï]'), 'i')
+          .replaceAll(RegExp(r'[ÓÒÔÕÖ]'), 'O')
+          .replaceAll(RegExp(r'[óòôõö]'), 'o')
+          .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
+          .replaceAll(RegExp(r'[úùûü]'), 'u')
+          .replaceAll(RegExp(r'[Ç]'), 'C')
+          .replaceAll(RegExp(r'[ç]'), 'c')
+          .replaceAll(RegExp(r'[^a-zA-Z0-9 ]'), '')
+          ;
+      }
+      relatorio.sort((a, b) {
+        // Ordena por data decrescente
+        final dataA = a['data'] as String? ?? '';
+        final dataB = b['data'] as String? ?? '';
+        final cmpData = dataB.compareTo(dataA);
+        if (cmpData != 0) return cmpData;
+        // Ordena por descrição normalizada
+        final descA = _normalize((a['description'] ?? '').toString().toLowerCase());
+        final descB = _normalize((b['description'] ?? '').toString().toLowerCase());
+        return descA.compareTo(descB);
+      });
+      if (relatorio.isEmpty) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma venda encontrada.')));
+        return;
+      }
+      // Função para remover acentos na impressão
+      String _removerAcentos(String s) {
+        return s
+          .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
+          .replaceAll(RegExp(r'[áàâãä]'), 'a')
+          .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
+          .replaceAll(RegExp(r'[éèêë]'), 'e')
+          .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
+          .replaceAll(RegExp(r'[íìîï]'), 'i')
+          .replaceAll(RegExp(r'[ÓÒÔÕÖ]'), 'O')
+          .replaceAll(RegExp(r'[óòôõö]'), 'o')
+          .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
+          .replaceAll(RegExp(r'[úùûü]'), 'u')
+          .replaceAll(RegExp(r'[Ç]'), 'C')
+          .replaceAll(RegExp(r'[ç]'), 'c');
+      }
+      await bluetooth.printCustom(_removerAcentos('RELATORIO DE VENDAS'), 1, 1);
+      await bluetooth.printCustom('', 1, 1);
+      String? lastDate;
+      double totalGeral = 0;
+      double totalDia = 0;
+      for (final row in relatorio) {
+        final data = row['data'] as String?;
+        final desc = row['description'] as String?;
+        final quantidade = row['total'] ?? 0;
+        var somaReais = row['soma_reais'];
+        double somaReaisNum;
+        if (somaReais == null) {
+          somaReaisNum = 0;
+        } else if (somaReais is int) {
+          somaReaisNum = somaReais.toDouble();
+        } else if (somaReais is double) {
+          somaReaisNum = somaReais;
+        } else if (somaReais is String) {
+          somaReaisNum = double.tryParse(somaReais) ?? 0;
+        } else {
+          somaReaisNum = 0;
+        }
+        if (data != lastDate && lastDate != null) {
+          // Imprime total do dia anterior
+          await bluetooth.printCustom('------------------------------', 0, 0);
+          await bluetooth.printCustom(_removerAcentos('TOTAL DO DIA: R\$ ' + totalDia.toStringAsFixed(2)), 0, 0);
+          await bluetooth.printCustom('', 1, 1);
+          totalDia = 0;
+        }
+        if (data != lastDate) {
+          await bluetooth.printCustom('', 1, 1);
+          await bluetooth.printCustom(_removerAcentos('Data: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(data!))}'), 0, 0);
+          await bluetooth.printCustom('------------------------------', 0, 0);
+          lastDate = data;
+        }
+        // Linha: descrição, quantidade, valor total
+        final descPrint = _removerAcentos((desc ?? '').padRight(12).substring(0, 12));
+        final line = '$descPrint ${quantidade.toString().padLeft(2)}  R\$ ${somaReaisNum.toStringAsFixed(2).padLeft(2)}';
+        print('[RELATORIO VENDA] $line');
+        await bluetooth.printCustom(line, 0, 0);
+        totalGeral += somaReaisNum;
+        totalDia += somaReaisNum;
+      }
+      // Imprime total do último dia
+      await bluetooth.printCustom('------------------------------', 0, 0);
+      await bluetooth.printCustom(_removerAcentos('TOTAL DO DIA: R\$ ' + totalDia.toStringAsFixed(2)), 0, 0);
+      await bluetooth.printCustom('', 1, 1);
+      // Imprime total geral ao final
+      await bluetooth.printCustom('------------------------------', 0, 0);
+      await bluetooth.printCustom(_removerAcentos('TOTAL GERAL: R\$ ${totalGeral.toStringAsFixed(2)}'), 0, 0);
+      await bluetooth.printCustom('', 1, 1);
+      await bluetooth.printCustom('', 1, 1);
+      await bluetooth.printCustom('', 1, 1);
+      await bluetooth.printCustom('', 1, 1);
+      await bluetooth.paperCut();
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma venda encontrada.')));
-      return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Relatório impresso!')));
+    } catch (e, st) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao imprimir relatório:\n${e.toString()}')),
+      );
+      print('Erro ao imprimir relatório: $e\n$st');
     }
-    // Função para remover acentos na impressão
-    String _removerAcentos(String s) {
-      return s
-        .replaceAll(RegExp(r'[ÁÀÂÃÄ]'), 'A')
-        .replaceAll(RegExp(r'[áàâãä]'), 'a')
-        .replaceAll(RegExp(r'[ÉÈÊË]'), 'E')
-        .replaceAll(RegExp(r'[éèêë]'), 'e')
-        .replaceAll(RegExp(r'[ÍÌÎÏ]'), 'I')
-        .replaceAll(RegExp(r'[íìîï]'), 'i')
-        .replaceAll(RegExp(r'[ÓÒÔÕÖ]'), 'O')
-        .replaceAll(RegExp(r'[óòôõö]'), 'o')
-        .replaceAll(RegExp(r'[ÚÙÛÜ]'), 'U')
-        .replaceAll(RegExp(r'[úùûü]'), 'u')
-        .replaceAll(RegExp(r'[Ç]'), 'C')
-        .replaceAll(RegExp(r'[ç]'), 'c');
-    }
-    await bluetooth.printCustom(_removerAcentos('RELATORIO DE VENDAS'), 1, 1);
-    await bluetooth.printNewLine();
-    String? lastDate;
-    double totalGeral = 0;
-    double totalDia = 0;
-    for (final row in relatorio) {
-      final data = row['data'] as String?;
-      final desc = row['description'] as String?;
-      final quantidade = row['total'] ?? 0;
-      var somaReais = row['soma_reais'];
-      double somaReaisNum;
-      if (somaReais == null) {
-        somaReaisNum = 0;
-      } else if (somaReais is int) {
-        somaReaisNum = somaReais.toDouble();
-      } else if (somaReais is double) {
-        somaReaisNum = somaReais;
-      } else if (somaReais is String) {
-        somaReaisNum = double.tryParse(somaReais) ?? 0;
-      } else {
-        somaReaisNum = 0;
-      }
-      if (data != lastDate && lastDate != null) {
-        // Imprime total do dia anterior
-        await bluetooth.printCustom('------------------------------', 0, 0);
-        await bluetooth.printCustom(_removerAcentos('TOTAL DO DIA: R\$ ' + totalDia.toStringAsFixed(2)), 0, 0);
-        await bluetooth.printNewLine();
-        totalDia = 0;
-      }
-      if (data != lastDate) {
-        await bluetooth.printNewLine();
-        await bluetooth.printCustom(_removerAcentos('Data: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(data!))}'), 0, 0);
-        await bluetooth.printCustom('------------------------------', 0, 0);
-        lastDate = data;
-      }
-      // Linha: descrição, quantidade, valor total
-      final descPrint = _removerAcentos((desc ?? '').padRight(12).substring(0, 12));
-      final line = '$descPrint ${quantidade.toString().padLeft(2)}  R\$ ${somaReaisNum.toStringAsFixed(2).padLeft(2)}';
-      print('[RELATORIO VENDA] $line');
-      await bluetooth.printCustom(line, 0, 0);
-      totalGeral += somaReaisNum;
-      totalDia += somaReaisNum;
-    }
-    // Imprime total do último dia
-  await bluetooth.printCustom('------------------------------', 0, 0);
-  await bluetooth.printCustom(_removerAcentos('TOTAL DO DIA: R\$ ' + totalDia.toStringAsFixed(2)), 0, 0);
-  await bluetooth.printNewLine();
-  // Imprime total geral ao final
-  await bluetooth.printCustom('------------------------------', 0, 0);
-  await bluetooth.printCustom(_removerAcentos('TOTAL GERAL: R\$ ${totalGeral.toStringAsFixed(2)}'), 0, 0);
-  await bluetooth.printNewLine();
-  await bluetooth.paperCut();
-  Navigator.of(context).pop();
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Relatório impresso!')));
   }
   // Nenhuma funcionalidade padrão
 

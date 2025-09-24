@@ -192,9 +192,11 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selected_printer_address', device.address ?? '');
     // Imprimir teste de sucesso
-    await bluetooth.printNewLine();
+    await bluetooth.printCustom('', 1, 1);
     await bluetooth.printCustom('Impressora conectada!', 1, 1);
-    await bluetooth.printNewLine();
+    await bluetooth.printCustom('', 1, 1);
+    await bluetooth.printCustom('', 1, 1);
+    await bluetooth.printCustom('', 1, 1);
     await bluetooth.paperCut();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Conectado e teste de impressão enviado para ${device.name ?? device.address}')),
