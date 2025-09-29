@@ -269,6 +269,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           DropdownMenuItem(value: 0, child: Text('Pequena')),
                           DropdownMenuItem(value: 1, child: Text('Média')),
                           DropdownMenuItem(value: 2, child: Text('Grande')),
+                          DropdownMenuItem(value: 3, child: Text('XGG')),
                         ],
                         onChanged: (v) {
                           if (v != null) _salvarFonte('font_ticket_desc', v).then((_) => setState(() {}));

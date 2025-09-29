@@ -20,19 +20,64 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    // Cores da bandeira do RS: vermelho (#C1272D), verde (#006937), amarelo (#F9D616)
+    const Color rsRed = Color(0xFFC1272D);
+    const Color rsGreen = Color(0xFF006937);
+    const Color rsYellow = Color(0xFFF9D616);
+
     return MaterialApp(
       title: 'Tickets Printer',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+        primaryColor: rsRed,
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: MaterialColor(
+            rsRed.value,
+            <int, Color>{
+              50: Color(0xFFF8E6E7),
+              100: Color(0xFFF1BFC2),
+              200: Color(0xFFE98F92),
+              300: Color(0xFFE05F62),
+              400: Color(0xFFD93B41),
+              500: rsRed,
+              600: Color(0xFFB32429),
+              700: Color(0xFF9C2023),
+              800: Color(0xFF851B1E),
+              900: Color(0xFF6E1619),
+            },
+          ),
+          accentColor: rsGreen,
+        ).copyWith(
+          secondary: rsGreen,
+          primary: rsRed,
+          surface: Colors.white,
+          background: Colors.white,
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+        ),
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: rsRed,
+          foregroundColor: Colors.white,
+          iconTheme: IconThemeData(color: Colors.white),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: rsGreen,
+            foregroundColor: Colors.white,
+            textStyle: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: rsRed,
+          foregroundColor: Colors.white,
+        ),
+        checkboxTheme: CheckboxThemeData(
+          fillColor: MaterialStateProperty.all(rsGreen),
+        ),
+        snackBarTheme: const SnackBarThemeData(
+          backgroundColor: rsRed,
+          contentTextStyle: TextStyle(color: Colors.white),
+        ),
       ),
       home: const MyHomePage(title: 'Impressão de Tickets - CTG'),
     );
