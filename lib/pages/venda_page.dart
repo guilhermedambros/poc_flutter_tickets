@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:intl/intl.dart';
 import '../database/app_database.dart';
+import '../utils/pix_qr_generator.dart';
 
 class VendaPage extends StatefulWidget {
   const VendaPage({Key? key}) : super(key: key);
@@ -12,6 +13,14 @@ class VendaPage extends StatefulWidget {
 }
 
 class _VendaPageState extends State<VendaPage> {
+  // Dados Pix para geração do QR Code (carregados das configurações)
+  String _pixChave = '';
+  String _pixNome = '';
+  String _pixCidade = '';
+  String _pixDescricao = '';
+  String? _pixPayload;
+  String? _currentTxid; // Armazena o txid atual
+  
   // Remove acentos para impressão térmica
   String _removerAcentos(String s) {
     return s
@@ -83,6 +92,16 @@ class _VendaPageState extends State<VendaPage> {
     ];
   }
 
+  Future<void> _carregarConfiguracoesPix() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _pixChave = prefs.getString('pix_chave') ?? '43821004000143';
+      _pixNome = prefs.getString('pix_nome') ?? 'CTG UNIAO SERRA E CANTO';
+      _pixCidade = prefs.getString('pix_cidade') ?? 'UNIAO DA SERRA';
+      _pixDescricao = prefs.getString('pix_descricao') ?? 'Pagamento de venda';
+    });
+  }
+
   Future<void> _mostrarUltimaVenda(BuildContext context) async {
     final db = await AppDatabase.instance.database;
     // Busca a data/hora da última venda
@@ -150,6 +169,7 @@ class _VendaPageState extends State<VendaPage> {
   void initState() {
     super.initState();
     _loadTickets();
+    _carregarConfiguracoesPix();
   }
 
   Future<void> _loadTickets() async {
@@ -220,22 +240,73 @@ class _VendaPageState extends State<VendaPage> {
     final dataHora = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
     final selected = tickets.where((t) => (quantities[t['id']] ?? 0) > 0).toList();
     final db = await AppDatabase.instance.database;
+    
+    // Garantir que a coluna txid existe
+    await AppDatabase.instance.ensureTxidColumn();
+    
     double totalVenda = 0;
+    String? vendaTxid; // txid da venda atual
+    
+    // Gerar txid primeiro se houver itens selecionados
+    if (selected.isNotEmpty) {
+      DateTime vencimento = DateTime.now().add(const Duration(hours: 24));
+      
+      // Calcular total primeiro
+      for (var ticket in selected) {
+        final qtd = quantities[ticket['id']] ?? 0;
+        final valorUnitario = ticket['valor'] ?? 0;
+        totalVenda += qtd * valorUnitario;
+      }
+      
+      // Gerar payload e txid
+      var pixResult = PixQrGenerator.generatePayloadWithTxid(
+        chave: _pixChave,
+        valor: totalVenda,
+        nome: _pixNome,
+        cidade: _pixCidade,
+        descricao: _pixDescricao,
+        vencimento: vencimento,
+      );
+      
+      vendaTxid = pixResult.txid;
+      
+      // Atualizar o estado para exibir o QR Code na tela
+      setState(() {
+        _pixPayload = pixResult.payload;
+        _currentTxid = vendaTxid;
+      });
+    }
+    
     // Carregar fontes
     final fontes = await _carregarFontesImpressao();
     final fonteDesc = fontes[0];
     final fonteValor = fontes[1];
     final fonteHora = fontes[2];
+    
+    // Inserir vendas no banco com txid
     for (var ticket in selected) {
       final qtd = quantities[ticket['id']] ?? 0;
       final valorUnitario = ticket['valor'] ?? 0;
-      totalVenda += qtd * valorUnitario;
-      await db.insert('vendas', {
-        'ticket_id': ticket['id'],
-        'amount': qtd,
-        'valor_unitario': valorUnitario,
-        // created_at será preenchido automaticamente
-      });
+      
+      try {
+        await db.insert('vendas', {
+          'ticket_id': ticket['id'],
+          'amount': qtd,
+          'valor_unitario': valorUnitario,
+          'txid': vendaTxid, // Salvar o txid da transação
+          // created_at será preenchido automaticamente
+        });
+      } catch (e) {
+        print('Erro ao inserir com txid: $e');
+        // Fallback: inserir sem txid se der erro
+        await db.insert('vendas', {
+          'ticket_id': ticket['id'],
+          'amount': qtd,
+          'valor_unitario': valorUnitario,
+          // created_at será preenchido automaticamente
+        });
+        print('Venda inserida sem txid como fallback');
+      }
     }
     // Linha superior
     await bluetooth.printCustom('------------------------------', 1, 1);
@@ -276,18 +347,41 @@ class _VendaPageState extends State<VendaPage> {
     if (totalTickets > 1) {
       await bluetooth.printCustom(_removerAcentos('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}'), fonteValor, 1);
     }
+    
+    // Gerar e imprimir QR Code Pix automaticamente
+    if (totalVenda > 0 && _pixPayload != null) {
+      try {
+        // Imprime o QR Code Pix
+        await bluetooth.printCustom('', 1, 1);
+        await bluetooth.printCustom('PAGUE VIA PIX', 2, 1);
+        await bluetooth.printCustom('', 1, 1);
+        
+        print('Tentando imprimir QR Code: $_pixPayload');
+        print('Tamanho do payload: ${_pixPayload!.length}');
+        print('TXID da venda atual: $_currentTxid');
+        print('TXID da venda: $vendaTxid');
+        
+        // Usar tamanho máximo suportado pela impressora térmica
+        await bluetooth.printQRcode(_pixPayload!, 250, 250, 1);
+        await bluetooth.printCustom('', 1, 1);
+        
+        print('QR Code enviado para impressão com sucesso');
+      } catch (e) {
+        print('Erro ao imprimir QR Code: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao imprimir QR Code: $e')),
+        );
+      }
+    }
+    
     await bluetooth.printCustom('', 1, 1);
     await bluetooth.printCustom('', 1, 1); 
     await bluetooth.printCustom('', 1, 1);
 
     await bluetooth.paperCut();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venda salva e impressão enviada!')));
-    // Zerar quantidades para nova venda
-    setState(() {
-      for (var id in quantities.keys) {
-        quantities[id] = 0;
-      }
-    });
+    
+    // NÃO zerar quantidades aqui - manter até fechar o QR Code
   }
 
   @override
@@ -301,18 +395,35 @@ class _VendaPageState extends State<VendaPage> {
       final valor = ticket['valor'] ?? 0;
       totalVenda += qtd * valor;
     }
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Venda'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: 'Última venda',
-            onPressed: () => _mostrarUltimaVenda(context),
-          ),
-        ],
-      ),
-      body: Column(
+    
+    return WillPopScope(
+      onWillPop: () async {
+        // Se há QR Code sendo exibido, limpa ele e zera quantidades ao invés de sair da página
+        if (_pixPayload != null && _pixPayload!.isNotEmpty) {
+          setState(() {
+            _pixPayload = null;
+            _currentTxid = null; // Limpar txid também
+            // Zerar quantidades para nova venda
+            for (var id in quantities.keys) {
+              quantities[id] = 0;
+            }
+          });
+          return false; // Não sai da página
+        }
+        return true; // Permite sair da página normalmente
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Venda'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.history),
+              tooltip: 'Última venda',
+              onPressed: () => _mostrarUltimaVenda(context),
+            ),
+          ],
+        ),
+        body: Column(
         children: [
           Expanded(
             child: GridView.builder(
@@ -391,12 +502,81 @@ class _VendaPageState extends State<VendaPage> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _printTickets,
-                child: const Text('Imprimir'),
+                onPressed: (_pixPayload != null && _pixPayload!.isNotEmpty) 
+                    ? null  // Desabilita o botão quando QR Code está sendo exibido
+                    : _printTickets,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: (_pixPayload != null && _pixPayload!.isNotEmpty)
+                      ? Colors.grey[300]  // Cor cinza quando desabilitado
+                      : null,  // Cor padrão quando habilitado
+                ),
+                child: Text(
+                  (_pixPayload != null && _pixPayload!.isNotEmpty)
+                      ? 'QR Code ativo - Feche para nova venda'
+                      : 'Imprimir',
+                  style: TextStyle(
+                    color: (_pixPayload != null && _pixPayload!.isNotEmpty)
+                        ? Colors.grey[600]  // Texto cinza quando desabilitado
+                        : null,  // Cor padrão quando habilitado
+                  ),
+                ),
               ),
             ),
           ),
+          if (_pixPayload != null && _pixPayload!.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 2,
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Pagamento via Pix', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          setState(() {
+                            _pixPayload = null;
+                            _currentTxid = null; // Limpar txid também
+                            // Zerar quantidades para nova venda
+                            for (var id in quantities.keys) {
+                              quantities[id] = 0;
+                            }
+                          });
+                        },
+                        tooltip: 'Fechar QR Code',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[200]!, width: 1),
+                    ),
+                    child: PixQrGenerator.buildQrCode(_pixPayload!),
+                  ),
+                ],
+              ),
+            ),
         ],
+      ),
       ),
     );
   }

@@ -11,6 +11,10 @@ class AppDatabase {
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('vendasCTG.db');
+    
+    // Garantir que a coluna txid existe após abrir o banco
+    await _ensureTxidColumnExists(_database!);
+    
     return _database!;
   }
 
@@ -19,8 +23,9 @@ class AppDatabase {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 1,
+      version: 3, // Incrementa versão para forçar migração
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -41,6 +46,7 @@ class AppDatabase {
         ticket_id INTEGER NOT NULL,
         amount INTEGER,
         valor_unitario REAL NOT NULL DEFAULT 0,
+        txid VARCHAR(255), -- ID da transação Pix
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(ticket_id) REFERENCES tickets(id)
       )
@@ -67,6 +73,97 @@ class AppDatabase {
     await db.insert('tickets', {'description': 'Refri 2L', 'valor': 15, 'icon': 'local_drink', 'active': 1});
     await db.insert('tickets', {'description': 'Salgadinho', 'valor': 7, 'icon': 'fastfood', 'active': 1});
     
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    print('Fazendo upgrade do banco de dados da versão $oldVersion para $newVersion');
+    
+    // Adiciona coluna txid se não existir (versão 1 -> 2 ou superior)
+    if (oldVersion < 2) {
+      try {
+        print('Adicionando coluna txid na tabela vendas (upgrade para v2)');
+        await db.execute('ALTER TABLE vendas ADD COLUMN txid VARCHAR(255)');
+        print('Coluna txid adicionada com sucesso');
+      } catch (e) {
+        print('Erro ao adicionar coluna txid na v2: $e');
+      }
+    }
+    
+    // Garantir que a coluna txid existe (versão 2 -> 3)
+    if (oldVersion < 3) {
+      try {
+        // Verifica se a coluna txid já existe
+        final result = await db.rawQuery("PRAGMA table_info(vendas)");
+        final hasTxidColumn = result.any((column) => column['name'] == 'txid');
+        
+        if (!hasTxidColumn) {
+          print('Adicionando coluna txid na tabela vendas (upgrade para v3)');
+          await db.execute('ALTER TABLE vendas ADD COLUMN txid VARCHAR(255)');
+          print('Coluna txid adicionada com sucesso');
+        } else {
+          print('Coluna txid já existe na tabela vendas');
+        }
+      } catch (e) {
+        print('Erro ao verificar/adicionar coluna txid na v3: $e');
+      }
+    }
+  }
+
+  static Future<void> deleteDatabaseFile() async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'vendasCTG.db');
+    print('Deletando banco de dados em: $path');
+    await deleteDatabase(path);
+    print('Banco de dados deletado');
+  }
+
+  static Future<void> resetDatabase() async {
+    // Fechar conexão existente se existir
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+    
+    // Deletar o arquivo do banco
+    await deleteDatabaseFile();
+    
+    // A próxima chamada para database criará um novo banco
+    print('Banco resetado - próxima chamada criará nova estrutura');
+  }
+
+  Future<void> _ensureTxidColumnExists(Database db) async {
+    try {
+      // Verifica se a coluna txid existe
+      final result = await db.rawQuery("PRAGMA table_info(vendas)");
+      final hasTxidColumn = result.any((column) => column['name'] == 'txid');
+      
+      if (!hasTxidColumn) {
+        print('Coluna txid não encontrada, adicionando...');
+        await db.execute('ALTER TABLE vendas ADD COLUMN txid VARCHAR(255)');
+        print('Coluna txid adicionada com sucesso via _ensureTxidColumnExists');
+      } else {
+        print('Coluna txid já existe na tabela vendas');
+      }
+    } catch (e) {
+      print('Erro ao verificar/adicionar coluna txid: $e');
+    }
+  }
+
+  Future<void> ensureTxidColumn() async {
+    final db = await database;
+    try {
+      // Verifica se a coluna txid existe
+      final result = await db.rawQuery("PRAGMA table_info(vendas)");
+      final hasTxidColumn = result.any((column) => column['name'] == 'txid');
+      
+      if (!hasTxidColumn) {
+        print('Coluna txid não encontrada, adicionando...');
+        await db.execute('ALTER TABLE vendas ADD COLUMN txid VARCHAR(255)');
+        print('Coluna txid adicionada com sucesso');
+      }
+    } catch (e) {
+      print('Erro ao verificar/adicionar coluna txid: $e');
+    }
   }
 
   Future close() async {

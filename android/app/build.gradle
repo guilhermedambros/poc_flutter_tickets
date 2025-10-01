@@ -1,3 +1,9 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -21,12 +27,9 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
-
 android {
-    compileSdkVersion 34
+    namespace 'com.example.tktprinter'
+    compileSdk 36
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -47,9 +50,9 @@ android {
         applicationId "com.example.tktprinter"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
-        minSdkVersion 19
-    targetSdkVersion 34
-    multiDexEnabled true
+        minSdkVersion flutter.minSdkVersion
+        targetSdk 36
+        multiDexEnabled true
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
@@ -61,10 +64,6 @@ android {
             signingConfig signingConfigs.debug
         }
     }
-}
-
-flutter {
-    source '../..'
 }
 
 dependencies {
