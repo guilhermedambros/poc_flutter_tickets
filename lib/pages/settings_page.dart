@@ -12,7 +12,10 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderStateMixin {
+  // Controlador de abas
+  late TabController _tabController;
+  
   // Controladores para os campos Pix
   final TextEditingController _pixChaveController = TextEditingController();
   final TextEditingController _pixNomeController = TextEditingController();
@@ -300,6 +303,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this); // Reduzido para 3 abas
     _initPrinters();
     _carregarConfiguracoesPix();
   }
@@ -364,6 +368,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _pixChaveController.dispose();
     _pixNomeController.dispose();
     _pixCidadeController.dispose();
@@ -379,40 +384,120 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Atualizar lista',
+            tooltip: 'Atualizar lista de impressoras',
             onPressed: _getBondedDevices,
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white, // Cor do texto/ícone quando selecionado
+          unselectedLabelColor: Colors.black, // Cor do texto/ícone quando não selecionado
+          indicatorColor: Colors.white, // Cor do indicador da aba selecionada
+          tabs: const [
+            Tab(icon: Icon(Icons.print), text: 'Impressora'),
+            Tab(icon: Icon(Icons.pix), text: 'Pix'),
+            Tab(icon: Icon(Icons.storage), text: 'Dados'),
+          ],
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
+      body: TabBarView(
+        controller: _tabController,
         children: [
+          _buildImpressoraTab(),
+          _buildPixTab(),
+          _buildDadosTab(),
+        ],
+      ),
+    );
+  }
+
+  // Aba de configurações da impressora (inclui impressão)
+  Widget _buildImpressoraTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Seção Impressora Bluetooth
           const Text(
-            'Selecione a impressora térmica Bluetooth:',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            'Impressora Térmica Bluetooth',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
+          const Text(
+            'Selecione a impressora:',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : DropdownButton<BluetoothDevice>(
-                  isExpanded: true,
-                  value: _selectedDevice,
-                  hint: const Text('Nenhum dispositivo encontrado'),
-                  items: _devices.map((d) {
-                    return DropdownMenuItem(
-                      value: d,
-                      child: Text(d.name ?? d.address ?? 'Desconhecido'),
-                    );
-                  }).toList(),
-                  onChanged: (device) {
-                    _connectToDevice(device);
-                  },
+              : Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<BluetoothDevice>(
+                      isExpanded: true,
+                      value: _selectedDevice,
+                      hint: const Text('Nenhum dispositivo encontrado'),
+                      items: _devices.map((d) {
+                        return DropdownMenuItem(
+                          value: d,
+                          child: Text(d.name ?? d.address ?? 'Desconhecido'),
+                        );
+                      }).toList(),
+                      onChanged: (device) {
+                        _connectToDevice(device);
+                      },
+                    ),
+                  ),
                 ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           if (_selectedDevice != null)
-            Text('Selecionado: ${_selectedDevice!.name ?? _selectedDevice!.address}'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                border: Border.all(color: Colors.green),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Conectado: ${_selectedDevice!.name ?? _selectedDevice!.address}',
+                      style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _getBondedDevices,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Atualizar Lista de Dispositivos'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+            ),
+          ),
+          
           const SizedBox(height: 32),
-          // Configuração de fonte de impressão
+          const Divider(),
+          const SizedBox(height: 16),
+          
+          // Seção Configurações de Impressão
+          const Text(
+            'Tamanhos de Fonte',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
           FutureBuilder<List<int>>(
             future: Future.wait([
               _carregarFonte('font_ticket_desc', 2),
@@ -420,74 +505,47 @@ class _SettingsPageState extends State<SettingsPage> {
               _carregarFonte('font_ticket_hora', 0),
             ]),
             builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SizedBox();
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               final fontes = snapshot.data!;
               return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Tamanho da fonte de impressão:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('Descrição:'),
-                      const SizedBox(width: 8),
-                      DropdownButton<int>(
-                        value: fontes[0],
-                        items: const [
-                          DropdownMenuItem(value: 0, child: Text('Pequena')),
-                          DropdownMenuItem(value: 1, child: Text('Média')),
-                          DropdownMenuItem(value: 2, child: Text('Grande')),
-                          DropdownMenuItem(value: 3, child: Text('XGG')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) _salvarFonte('font_ticket_desc', v).then((_) => setState(() {}));
-                        },
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Text('Valor:'),
-                      const SizedBox(width: 8),
-                      DropdownButton<int>(
-                        value: fontes[1],
-                        items: const [
-                          DropdownMenuItem(value: 0, child: Text('Pequena')),
-                          DropdownMenuItem(value: 1, child: Text('Média')),
-                          DropdownMenuItem(value: 2, child: Text('Grande')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) _salvarFonte('font_ticket_valor', v).then((_) => setState(() {}));
-                        },
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Text('Hora:'),
-                      const SizedBox(width: 8),
-                      DropdownButton<int>(
-                        value: fontes[2],
-                        items: const [
-                          DropdownMenuItem(value: 0, child: Text('Pequena')),
-                          DropdownMenuItem(value: 1, child: Text('Média')),
-                          DropdownMenuItem(value: 2, child: Text('Grande')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) _salvarFonte('font_ticket_hora', v).then((_) => setState(() {}));
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                  _buildFontConfig('Descrição do produto:', fontes[0], 'font_ticket_desc', [
+                    const DropdownMenuItem(value: 0, child: Text('Pequena')),
+                    const DropdownMenuItem(value: 1, child: Text('Média')),
+                    const DropdownMenuItem(value: 2, child: Text('Grande')),
+                    const DropdownMenuItem(value: 3, child: Text('Extra Grande')),
+                  ]),
+                  const SizedBox(height: 16),
+                  _buildFontConfig('Valor do produto:', fontes[1], 'font_ticket_valor', [
+                    const DropdownMenuItem(value: 0, child: Text('Pequena')),
+                    const DropdownMenuItem(value: 1, child: Text('Média')),
+                    const DropdownMenuItem(value: 2, child: Text('Grande')),
+                  ]),
+                  const SizedBox(height: 16),
+                  _buildFontConfig('Data e hora:', fontes[2], 'font_ticket_hora', [
+                    const DropdownMenuItem(value: 0, child: Text('Pequena')),
+                    const DropdownMenuItem(value: 1, child: Text('Média')),
+                    const DropdownMenuItem(value: 2, child: Text('Grande')),
+                  ]),
                 ],
               );
             },
           ),
-          const SizedBox(height: 32),
-          // Configurações Pix
+          const SizedBox(height: 16), // Espaço extra no final
+        ],
+      ),
+    );
+  }
+
+  // Aba de configurações Pix
+  Widget _buildPixTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           const Text(
-            'Configurações Pix:',
+            'Configurações Pix',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
@@ -499,7 +557,7 @@ class _SettingsPageState extends State<SettingsPage> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextField(
             controller: _pixNomeController,
             decoration: const InputDecoration(
@@ -507,7 +565,7 @@ class _SettingsPageState extends State<SettingsPage> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextField(
             controller: _pixCidadeController,
             decoration: const InputDecoration(
@@ -515,7 +573,7 @@ class _SettingsPageState extends State<SettingsPage> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextField(
             controller: _pixDescricaoController,
             decoration: const InputDecoration(
@@ -523,29 +581,93 @@ class _SettingsPageState extends State<SettingsPage> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton(
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
             onPressed: _salvarConfiguracoesPix,
-            child: const Text('Salvar Configurações Pix'),
+            icon: const Icon(Icons.save),
+            label: const Text('Salvar Configurações Pix'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+            ),
           ),
-          const SizedBox(height: 32),
-          ListTile(
-            leading: const Icon(Icons.search, color: Colors.blue),
-            title: const Text('Consultar venda por TXID'),
-            subtitle: const Text('Buscar venda pelo ID da transação Pix'),
-            onTap: () => _consultarVendaPorTxid(context),
+          const SizedBox(height: 16), // Espaço extra no final
+        ],
+      ),
+    );
+  }
+
+  // Aba de gerenciamento de dados
+  Widget _buildDadosTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Gerenciamento de Dados',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          ListTile(
-            leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text('Eliminar vendas'),
-            subtitle: const Text('Remover vendas por dia'),
-            onTap: () => _eliminarVendas(context),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.search, color: Colors.blue),
+              title: const Text('Consultar venda por TXID'),
+              subtitle: const Text('Buscar venda pelo ID da transação Pix'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () => _consultarVendaPorTxid(context),
+            ),
           ),
-          ListTile(
-            leading: const Icon(Icons.refresh, color: Colors.orange),
-            title: const Text('Resetar banco de dados'),
-            subtitle: const Text('ATENÇÃO: Remove TODOS os dados e atualiza estrutura'),
-            onTap: () => _resetarBancoDados(context),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.orange),
+              title: const Text('Eliminar vendas'),
+              subtitle: const Text('Remover vendas por dia'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () => _eliminarVendas(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.warning, color: Colors.red),
+              title: const Text('Resetar banco de dados'),
+              subtitle: const Text('ATENÇÃO: Remove TODOS os dados'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () => _resetarBancoDados(context),
+            ),
+          ),
+          const SizedBox(height: 16), // Espaço extra no final
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFontConfig(String label, int currentValue, String key, List<DropdownMenuItem<int>> items) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 8),
+          DropdownButton<int>(
+            isExpanded: true,
+            value: currentValue,
+            items: items,
+            onChanged: (v) {
+              if (v != null) {
+                _salvarFonte(key, v).then((_) => setState(() {}));
+              }
+            },
           ),
         ],
       ),
