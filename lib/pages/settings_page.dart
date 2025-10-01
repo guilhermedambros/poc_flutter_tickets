@@ -34,9 +34,9 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
 
   Future<void> _carregarConfiguracoesPix() async {
     final prefs = await SharedPreferences.getInstance();
-    _pixChaveController.text = prefs.getString('pix_chave') ?? '43821004000143';
-    _pixNomeController.text = prefs.getString('pix_nome') ?? 'CTG UNIAO SERRA E CANTO';
-    _pixCidadeController.text = prefs.getString('pix_cidade') ?? 'UNIAO DA SERRA';
+    _pixChaveController.text = prefs.getString('pix_chave') ?? '99921004000199';
+    _pixNomeController.text = prefs.getString('pix_nome') ?? 'NOME DA EMPRESA';
+    _pixCidadeController.text = prefs.getString('pix_cidade') ?? 'CIDADE';
     _pixDescricaoController.text = prefs.getString('pix_descricao') ?? 'Pagamento de venda';
   }
 

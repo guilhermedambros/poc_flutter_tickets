@@ -95,9 +95,9 @@ class _VendaPageState extends State<VendaPage> {
   Future<void> _carregarConfiguracoesPix() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _pixChave = prefs.getString('pix_chave') ?? '43821004000143';
-      _pixNome = prefs.getString('pix_nome') ?? 'CTG UNIAO SERRA E CANTO';
-      _pixCidade = prefs.getString('pix_cidade') ?? 'UNIAO DA SERRA';
+      _pixChave = prefs.getString('pix_chave') ?? '99921004000199';
+      _pixNome = prefs.getString('pix_nome') ?? 'NOME DA EMPRESA';
+      _pixCidade = prefs.getString('pix_cidade') ?? 'CIDADE';
       _pixDescricao = prefs.getString('pix_descricao') ?? 'Pagamento de venda';
     });
   }
