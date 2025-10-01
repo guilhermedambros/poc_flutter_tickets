@@ -513,7 +513,6 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
                     const DropdownMenuItem(value: 0, child: Text('Pequena')),
                     const DropdownMenuItem(value: 1, child: Text('Média')),
                     const DropdownMenuItem(value: 2, child: Text('Grande')),
-                    const DropdownMenuItem(value: 3, child: Text('Extra Grande')),
                   ]),
                   const SizedBox(height: 16),
                   _buildFontConfig('Valor do produto:', fontes[1], 'font_ticket_valor', [
