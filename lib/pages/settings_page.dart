@@ -376,6 +376,34 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
     super.dispose();
   }
 
+  Future<void> _printTestTicket() async {
+    if (_selectedDevice == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione uma impressora para imprimir o teste.')),
+      );
+      return;
+    }
+
+    // Carregar configurações de fonte
+    final descFont = await _carregarFonte('font_ticket_desc', 2);
+    final valorFont = await _carregarFonte('font_ticket_valor', 0);
+    final horaFont = await _carregarFonte('font_ticket_hora', 0);
+
+    // Imprimir ticket de teste
+    await bluetooth.printCustom('------------------------------', 1, 1);
+    await bluetooth.printCustom('Ticket Teste ', descFont, 1);
+    await bluetooth.printCustom('R\$ 10,00', valorFont, 1);
+    await bluetooth.printCustom('${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}', horaFont, 1);
+    await bluetooth.printCustom('------------------------------', 1, 1);
+    await bluetooth.printCustom('', 0, 0);
+    await bluetooth.printCustom('', 0, 0);
+    await bluetooth.printCustom('', 0, 0);
+    await bluetooth.paperCut();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ticket de teste enviado para impressora!')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -386,6 +414,11 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
             icon: const Icon(Icons.refresh),
             tooltip: 'Atualizar lista de impressoras',
             onPressed: _getBondedDevices,
+          ),
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'Imprimir teste',
+            onPressed: _printTestTicket,
           ),
         ],
         bottom: TabBar(
