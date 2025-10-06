@@ -195,6 +195,20 @@ class _MyHomePageState extends State<MyHomePage> {
       );
       final db = await AppDatabase.instance.database;
       final bluetooth = BlueThermalPrinter.instance;
+      
+      // Verificar se a impressora está conectada
+      final isConnected = await bluetooth.isConnected;
+      if (isConnected == null || !isConnected) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impressora não conectada. Conecte a impressora nas configurações.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       // Adiciona filtro de datas se necessário
       String whereDatas = '';
       List<dynamic> whereArgs = [];
@@ -202,6 +216,45 @@ class _MyHomePageState extends State<MyHomePage> {
         whereDatas = 'WHERE DATE(v.created_at) IN (${List.filled(datasSelecionadas.length, '?').join(',')})';
         whereArgs = datasSelecionadas;
       }
+      // Buscar totais por forma de pagamento
+      String whereDatasForTotais = '';
+      if (datasSelecionadas != null && datasSelecionadas.isNotEmpty) {
+        whereDatasForTotais = 'WHERE DATE(v.created_at) IN (${List.filled(datasSelecionadas.length, '?').join(',')})';
+      }
+      final totaisPorForma = await db.rawQuery('''
+        SELECT 
+          v.forma_pagamento,
+          SUM(v.amount * COALESCE(v.valor_unitario, 0)) as total
+        FROM vendas v
+        ${whereDatasForTotais.isNotEmpty ? whereDatasForTotais : ''}
+        GROUP BY v.forma_pagamento
+      ''', whereArgs);
+      
+      double totalPix = 0;
+      double totalDinheiro = 0;
+      
+      for (final row in totaisPorForma) {
+        final formaPagamento = row['forma_pagamento'] as String?;
+        final total = row['total'];
+        double valor = 0;
+        if (total is int) {
+          valor = total.toDouble();
+        } else if (total is double) {
+          valor = total;
+        } else if (total is String) {
+          valor = double.tryParse(total) ?? 0;
+        }
+        
+        if (formaPagamento == 'pix') {
+          totalPix = valor;
+        } else if (formaPagamento == 'dinheiro') {
+          totalDinheiro = valor;
+        }
+      }
+      
+      print('[RELATORIO VENDA] Total Pix: R\$ ${totalPix.toStringAsFixed(2)}');
+      print('[RELATORIO VENDA] Total Dinheiro: R\$ ${totalDinheiro.toStringAsFixed(2)}');
+      
       final relatorioResult = await db.rawQuery('''
         SELECT 
           DATE(v.created_at) as data,
@@ -319,6 +372,19 @@ class _MyHomePageState extends State<MyHomePage> {
       await bluetooth.printCustom('------------------------------', 0, 0);
       await bluetooth.printCustom(_removerAcentos('TOTAL GERAL: R\$ ${totalGeral.toStringAsFixed(2)}'), 0, 0);
       await bluetooth.printCustom('', 1, 1);
+      
+      // Imprime totais por forma de pagamento
+      if (totalPix > 0 || totalDinheiro > 0) {
+        await bluetooth.printCustom('------------------------------', 0, 0);
+        if (totalPix > 0) {
+          await bluetooth.printCustom(_removerAcentos('TOTAL PIX: R\$ ${totalPix.toStringAsFixed(2)}'), 0, 0);
+        }
+        if (totalDinheiro > 0) {
+          await bluetooth.printCustom(_removerAcentos('TOTAL DINHEIRO: R\$ ${totalDinheiro.toStringAsFixed(2)}'), 0, 0);
+        }
+        await bluetooth.printCustom('', 1, 1);
+      }
+      
       await bluetooth.printCustom('', 1, 1);
       await bluetooth.printCustom('', 1, 1);
       await bluetooth.printCustom('', 1, 1);
