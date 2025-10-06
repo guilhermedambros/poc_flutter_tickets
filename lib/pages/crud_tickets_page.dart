@@ -191,6 +191,23 @@ class _CrudTicketsPageState extends State<CrudTicketsPage> {
     });
   }
 
+  Future<void> _toggleTicketActive(int ticketId, bool active) async {
+    final db = await AppDatabase.instance.database;
+    await db.update(
+      'tickets',
+      {'active': active ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [ticketId],
+    );
+    await _loadTickets();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(active ? 'Ticket ativado!' : 'Ticket desativado!'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
   Future<void> _saveTicket() async {
   if (!_formKey.currentState!.validate()) return;
     final db = await AppDatabase.instance.database;
@@ -223,16 +240,6 @@ class _CrudTicketsPageState extends State<CrudTicketsPage> {
     _active = true;
     _icon = 'local_activity';
     await _loadTickets();
-  }
-
-  void _editTicket(Map<String, dynamic> ticket) {
-    setState(() {
-      _descController.text = ticket['description'] ?? '';
-      _valorController.text = (ticket['valor'] ?? 0).toString();
-      _editingId = ticket['id'] as int;
-      _active = (ticket['active'] ?? 1) == 1;
-      _icon = ticket['icon'] ?? 'local_activity';
-    });
   }
 
   @override
@@ -276,11 +283,34 @@ class _CrudTicketsPageState extends State<CrudTicketsPage> {
                         )['icon'] as IconData;
                         return ListTile(
                           leading: Icon(iconData, color: isActive ? Colors.blue : Colors.grey),
-                          title: Text(ticket['description'] ?? ''),
-                          subtitle: Text('R\$ ${valor.toStringAsFixed(2)}'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _openTicketForm(ticket: ticket),
+                          title: Text(
+                            ticket['description'] ?? '',
+                            style: TextStyle(
+                              color: isActive ? Colors.black : Colors.grey,
+                              decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'R\$ ${valor.toStringAsFixed(2)}',
+                            style: TextStyle(color: isActive ? Colors.black87 : Colors.grey),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Switch(
+                                value: isActive,
+                                activeColor: Colors.green,
+                                inactiveThumbColor: Colors.grey,
+                                inactiveTrackColor: Colors.grey.shade300,
+                                onChanged: (value) async {
+                                  await _toggleTicketActive(ticket['id'] as int, value);
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () => _openTicketForm(ticket: ticket),
+                              ),
+                            ],
                           ),
                         );
                       },
