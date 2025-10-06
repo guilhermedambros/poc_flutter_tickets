@@ -23,7 +23,7 @@ class AppDatabase {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 3, // Incrementa versão para forçar migração
+      version: 4, // Incrementa versão para adicionar forma_pagamento
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -47,6 +47,7 @@ class AppDatabase {
         amount INTEGER,
         valor_unitario REAL NOT NULL DEFAULT 0,
         txid VARCHAR(255), -- ID da transação Pix
+        forma_pagamento VARCHAR(50), -- Forma de pagamento: 'pix' ou 'dinheiro'
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(ticket_id) REFERENCES tickets(id)
       )
@@ -105,6 +106,25 @@ class AppDatabase {
         }
       } catch (e) {
         print('Erro ao verificar/adicionar coluna txid na v3: $e');
+      }
+    }
+    
+    // Adicionar coluna forma_pagamento (versão 3 -> 4)
+    if (oldVersion < 4) {
+      try {
+        // Verifica se a coluna forma_pagamento já existe
+        final result = await db.rawQuery("PRAGMA table_info(vendas)");
+        final hasFormaPagamentoColumn = result.any((column) => column['name'] == 'forma_pagamento');
+        
+        if (!hasFormaPagamentoColumn) {
+          print('Adicionando coluna forma_pagamento na tabela vendas (upgrade para v4)');
+          await db.execute('ALTER TABLE vendas ADD COLUMN forma_pagamento VARCHAR(50)');
+          print('Coluna forma_pagamento adicionada com sucesso');
+        } else {
+          print('Coluna forma_pagamento já existe na tabela vendas');
+        }
+      } catch (e) {
+        print('Erro ao verificar/adicionar coluna forma_pagamento na v4: $e');
       }
     }
   }

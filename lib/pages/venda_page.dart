@@ -236,9 +236,47 @@ class _VendaPageState extends State<VendaPage> {
   }
 
   Future<void> _printTickets() async {
+    final selected = tickets.where((t) => (quantities[t['id']] ?? 0) > 0).toList();
+    
+    if (selected.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione pelo menos um ticket para imprimir')),
+      );
+      return;
+    }
+    
+    // Solicitar forma de pagamento
+    final formaPagamento = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Forma de Pagamento'),
+        content: const Text('Selecione a forma de pagamento:'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.of(context).pop('dinheiro'),
+            icon: const Icon(Icons.attach_money),
+            label: const Text('Dinheiro'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.of(context).pop('pix'),
+            icon: const Icon(Icons.pix),
+            label: const Text('Pix'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+          ),
+        ],
+      ),
+    );
+    
+    if (formaPagamento == null) return; // Usuário cancelou
+    
     final now = DateTime.now();
     final dataHora = DateFormat('dd/MM/yyyy HH:mm:ss').format(now);
-    final selected = tickets.where((t) => (quantities[t['id']] ?? 0) > 0).toList();
     final db = await AppDatabase.instance.database;
     
     // Garantir que a coluna txid existe
@@ -247,18 +285,17 @@ class _VendaPageState extends State<VendaPage> {
     double totalVenda = 0;
     String? vendaTxid; // txid da venda atual
     
-    // Gerar txid primeiro se houver itens selecionados
-    if (selected.isNotEmpty) {
+    // Calcular total
+    for (var ticket in selected) {
+      final qtd = quantities[ticket['id']] ?? 0;
+      final valorUnitario = ticket['valor'] ?? 0;
+      totalVenda += qtd * valorUnitario;
+    }
+    
+    // Gerar txid e payload APENAS se for pagamento via Pix
+    if (formaPagamento == 'pix') {
       DateTime vencimento = DateTime.now().add(const Duration(hours: 24));
       
-      // Calcular total primeiro
-      for (var ticket in selected) {
-        final qtd = quantities[ticket['id']] ?? 0;
-        final valorUnitario = ticket['valor'] ?? 0;
-        totalVenda += qtd * valorUnitario;
-      }
-      
-      // Gerar payload e txid
       var pixResult = PixQrGenerator.generatePayloadWithTxid(
         chave: _pixChave,
         valor: totalVenda,
@@ -283,7 +320,7 @@ class _VendaPageState extends State<VendaPage> {
     final fonteValor = fontes[1];
     final fonteHora = fontes[2];
     
-    // Inserir vendas no banco com txid
+    // Inserir vendas no banco com txid e forma de pagamento
     for (var ticket in selected) {
       final qtd = quantities[ticket['id']] ?? 0;
       final valorUnitario = ticket['valor'] ?? 0;
@@ -294,15 +331,17 @@ class _VendaPageState extends State<VendaPage> {
           'amount': qtd,
           'valor_unitario': valorUnitario,
           'txid': vendaTxid, // Salvar o txid da transação
+          'forma_pagamento': formaPagamento, // Salvar forma de pagamento
           // created_at será preenchido automaticamente
         });
       } catch (e) {
-        print('Erro ao inserir com txid: $e');
+        print('Erro ao inserir com txid e forma_pagamento: $e');
         // Fallback: inserir sem txid se der erro
         await db.insert('vendas', {
           'ticket_id': ticket['id'],
           'amount': qtd,
           'valor_unitario': valorUnitario,
+          'forma_pagamento': formaPagamento, // Salvar forma de pagamento
           // created_at será preenchido automaticamente
         });
         print('Venda inserida sem txid como fallback');
@@ -346,10 +385,11 @@ class _VendaPageState extends State<VendaPage> {
     }
     if (totalTickets > 1) {
       await bluetooth.printCustom(_removerAcentos('TOTAL DA VENDA: R\$ ${totalVenda.toStringAsFixed(2)}'), fonteValor, 1);
+      await bluetooth.printCustom('', 1, 1);
     }
     
-    // Gerar e imprimir QR Code Pix automaticamente
-    if (totalVenda > 0 && _pixPayload != null) {
+    // Gerar e imprimir QR Code Pix APENAS se a forma de pagamento for Pix
+    if (formaPagamento == 'pix' && totalVenda > 0 && _pixPayload != null) {
       try {
         // Imprime o QR Code Pix
         await bluetooth.printCustom('', 1, 1);
@@ -381,7 +421,15 @@ class _VendaPageState extends State<VendaPage> {
     await bluetooth.paperCut();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Venda salva e impressão enviada!')));
     
-    // NÃO zerar quantidades aqui - manter até fechar o QR Code
+    // Se for pagamento em dinheiro, zerar as quantidades imediatamente
+    // Se for Pix, manter quantidades até fechar o QR Code
+    if (formaPagamento == 'dinheiro') {
+      setState(() {
+        for (var id in quantities.keys) {
+          quantities[id] = 0;
+        }
+      });
+    }
   }
 
   @override
