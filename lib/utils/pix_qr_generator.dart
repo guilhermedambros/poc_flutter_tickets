@@ -21,6 +21,16 @@ class PixQrGenerator {
     String? descricao,
     DateTime? vencimento,
   }) {
+    print('[PIX PAYLOAD] Iniciando geração...');
+    
+    // Validações de entrada
+    if (chave.isEmpty) {
+      throw Exception('Chave PIX vazia');
+    }
+    if (valor <= 0) {
+      throw Exception('Valor deve ser maior que zero');
+    }
+    
     // Validar chave Pix
     String chaveFormatada = _formatarChavePix(chave);
     
@@ -29,8 +39,25 @@ class PixQrGenerator {
     cidade = _sanitizeText(cidade ?? 'BRASIL', 15);
     descricao = _sanitizeText(descricao ?? '', 25);
     
-    // Gera um identificador único para a transação
-    String txId = DateTime.now().millisecondsSinceEpoch.toString().substring(7);
+    if (nome.isEmpty) {
+      throw Exception('Nome não pode ser vazio após sanitização');
+    }
+    if (cidade.isEmpty) {
+      throw Exception('Cidade não pode ser vazia após sanitização');
+    }
+    
+    // Gera um identificador único para a transação com timestamp + componente aleatório
+    // Limita a 25 caracteres conforme especificação Pix
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = (timestamp % 10000).toString().padLeft(4, '0');
+    String txId = 'TKT${timestamp}$random';
+    
+    // Garantir que o TXID não ultrapasse 25 caracteres
+    if (txId.length > 25) {
+      txId = txId.substring(0, 25);
+    }
+    
+    print('[PIX PAYLOAD] TXID gerado: $txId (${txId.length} caracteres)');
     
     // Formato EMV padrão para Pix
     String payload = '';
@@ -89,16 +116,30 @@ class PixQrGenerator {
     String crc = _calculateCRC16(payload);
     payload += crc;
     
-    print('Payload Pix gerado: $payload'); // Debug
-    print('Chave: $chaveFormatada');
-    print('Valor: ${valor.toStringAsFixed(2)}');
-    print('Nome: $nome');
-    print('Cidade: $cidade');
-    print('TX ID: $txId');
-    if (vencimento != null) {
-      print('Vencimento: ${DateFormat('dd/MM/yyyy').format(vencimento)}');
+    // Debug: imprimir início do payload para validação
+    print('[PIX PAYLOAD] Início do payload: ${payload.substring(0, payload.length > 20 ? 20 : payload.length)}');
+    
+    // Validar se o payload foi gerado corretamente
+    // O payload deve começar com "000201" (Payload Format Indicator)
+    if (payload.isEmpty || !payload.startsWith('000201')) {
+      print('[PIX PAYLOAD] ERRO: Payload inválido. Início esperado: "000201", Recebido: "${payload.substring(0, payload.length > 10 ? 10 : payload.length)}"');
+      throw Exception('Payload PIX inválido gerado');
     }
-    print('Tamanho total: ${payload.length} caracteres');
+    
+    print('[PIX PAYLOAD] ========================================');
+    print('[PIX PAYLOAD] Payload Pix gerado com sucesso');
+    print('[PIX PAYLOAD] Chave: $chaveFormatada');
+    print('[PIX PAYLOAD] Valor: R\$ ${valor.toStringAsFixed(2)}');
+    print('[PIX PAYLOAD] Nome: $nome');
+    print('[PIX PAYLOAD] Cidade: $cidade');
+    print('[PIX PAYLOAD] TX ID: $txId');
+    if (vencimento != null) {
+      print('[PIX PAYLOAD] Vencimento: ${DateFormat('dd/MM/yyyy').format(vencimento)}');
+    }
+    print('[PIX PAYLOAD] CRC: $crc');
+    print('[PIX PAYLOAD] Tamanho total: ${payload.length} caracteres');
+    print('[PIX PAYLOAD] Primeiros 50 caracteres: ${payload.substring(0, payload.length > 50 ? 50 : payload.length)}...');
+    print('[PIX PAYLOAD] ========================================');
     
     return PixPayloadResult(payload: payload, txid: txId);
   }

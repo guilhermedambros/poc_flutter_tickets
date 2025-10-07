@@ -294,24 +294,64 @@ class _VendaPageState extends State<VendaPage> {
     
     // Gerar txid e payload APENAS se for pagamento via Pix
     if (formaPagamento == 'pix') {
-      DateTime vencimento = DateTime.now().add(const Duration(hours: 24));
+      // Validar se as configurações Pix estão completas
+      if (_pixChave.isEmpty || _pixNome.isEmpty || _pixCidade.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Configure os dados Pix nas configurações antes de usar pagamento Pix.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
       
-      var pixResult = PixQrGenerator.generatePayloadWithTxid(
-        chave: _pixChave,
-        valor: totalVenda,
-        nome: _pixNome,
-        cidade: _pixCidade,
-        descricao: _pixDescricao,
-        vencimento: vencimento,
-      );
+      print('[PIX] ========================================');
+      print('[PIX] Iniciando geração de QR Code Pix');
+      print('[PIX] Valor total: R\$ ${totalVenda.toStringAsFixed(2)}');
+      print('[PIX] Chave configurada: $_pixChave');
+      print('[PIX] Nome: $_pixNome');
+      print('[PIX] Cidade: $_pixCidade');
+      print('[PIX] ========================================');
       
-      vendaTxid = pixResult.txid;
-      
-      // Atualizar o estado para exibir o QR Code na tela
-      setState(() {
-        _pixPayload = pixResult.payload;
-        _currentTxid = vendaTxid;
-      });
+      try {
+        DateTime vencimento = DateTime.now().add(const Duration(hours: 24));
+        
+        var pixResult = PixQrGenerator.generatePayloadWithTxid(
+          chave: _pixChave,
+          valor: totalVenda,
+          nome: _pixNome,
+          cidade: _pixCidade,
+          descricao: _pixDescricao,
+          vencimento: vencimento,
+        );
+        
+        vendaTxid = pixResult.txid;
+        
+        print('[PIX] ========================================');
+        print('[PIX] QR Code gerado com sucesso!');
+        print('[PIX] TXID: $vendaTxid');
+        print('[PIX] Tamanho do payload: ${pixResult.payload.length} caracteres');
+        print('[PIX] ========================================');
+        
+        // Atualizar o estado para exibir o QR Code na tela
+        setState(() {
+          _pixPayload = pixResult.payload;
+          _currentTxid = vendaTxid;
+        });
+      } catch (e) {
+        print('[PIX] ========================================');
+        print('[PIX] ERRO ao gerar QR Code: $e');
+        print('[PIX] ========================================');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao gerar QR Code Pix: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
     }
     
     // Carregar fontes
@@ -391,25 +431,33 @@ class _VendaPageState extends State<VendaPage> {
     // Gerar e imprimir QR Code Pix APENAS se a forma de pagamento for Pix
     if (formaPagamento == 'pix' && totalVenda > 0 && _pixPayload != null) {
       try {
+        print('[PIX IMPRESSAO] ========================================');
+        print('[PIX IMPRESSAO] Iniciando impressão do QR Code');
+        print('[PIX IMPRESSAO] TXID: $_currentTxid');
+        print('[PIX IMPRESSAO] Tamanho do payload: ${_pixPayload!.length} caracteres');
+        print('[PIX IMPRESSAO] Primeiros 50 caracteres: ${_pixPayload!.substring(0, _pixPayload!.length > 50 ? 50 : _pixPayload!.length)}...');
+        
         // Imprime o QR Code Pix
         await bluetooth.printCustom('', 1, 1);
         await bluetooth.printCustom('PAGUE VIA PIX', 2, 1);
         await bluetooth.printCustom('', 1, 1);
         
-        print('Tentando imprimir QR Code: $_pixPayload');
-        print('Tamanho do payload: ${_pixPayload!.length}');
-        print('TXID da venda atual: $_currentTxid');
-        print('TXID da venda: $vendaTxid');
-        
         // Usar tamanho máximo suportado pela impressora térmica
         await bluetooth.printQRcode(_pixPayload!, 250, 250, 1);
         await bluetooth.printCustom('', 1, 1);
         
-        print('QR Code enviado para impressão com sucesso');
+        print('[PIX IMPRESSAO] QR Code enviado para impressão com sucesso');
+        print('[PIX IMPRESSAO] ========================================');
       } catch (e) {
-        print('Erro ao imprimir QR Code: $e');
+        print('[PIX IMPRESSAO] ========================================');
+        print('[PIX IMPRESSAO] ERRO ao imprimir QR Code: $e');
+        print('[PIX IMPRESSAO] ========================================');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao imprimir QR Code: $e')),
+          SnackBar(
+            content: Text('Erro ao imprimir QR Code: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     }
