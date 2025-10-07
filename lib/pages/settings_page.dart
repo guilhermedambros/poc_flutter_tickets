@@ -246,6 +246,77 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
     );
   }
 
+  Future<void> _corrigirFusoHorario(BuildContext context) async {
+    final db = await AppDatabase.instance.database;
+    
+    // Contar quantas vendas serão afetadas
+    final countResult = await db.rawQuery('SELECT COUNT(*) as total FROM vendas');
+    final totalVendas = countResult.first['total'] as int;
+    
+    if (totalVendas == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nenhuma venda encontrada para corrigir.')),
+      );
+      return;
+    }
+    
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Corrigir Fuso Horário'),
+        content: Text(
+          'Esta ação irá ajustar as datas de $totalVendas venda(s) '
+          'subtraindo 3 horas para converter de UTC para horário de Brasília.\n\n'
+          'Exemplo:\n'
+          '• 05/10/2024 02:00 → 04/10/2024 23:00\n\n'
+          'ATENÇÃO: Execute esta correção apenas UMA VEZ!\n\n'
+          'Deseja continuar?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Corrigir'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirm != true) return;
+    
+    try {
+      // Subtrair 3 horas de todas as vendas existentes
+      // SQLite: datetime(created_at, '-3 hours')
+      await db.execute('''
+        UPDATE vendas 
+        SET created_at = datetime(created_at, '-3 hours')
+      ''');
+      
+      print('[TIMEZONE] Correção de fuso horário aplicada a $totalVendas venda(s)');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Fuso horário corrigido para $totalVendas venda(s)!'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      print('[TIMEZONE] Erro ao corrigir fuso horário: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao corrigir fuso horário: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
   Future<void> _resetarBancoDados(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -647,6 +718,16 @@ class _SettingsPageState extends State<SettingsPage> with SingleTickerProviderSt
               subtitle: const Text('Buscar venda pelo ID da transação Pix'),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () => _consultarVendaPorTxid(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.access_time, color: Colors.blue),
+              title: const Text('Corrigir fuso horário'),
+              subtitle: const Text('Ajustar datas UTC para horário local (-3h)'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () => _corrigirFusoHorario(context),
             ),
           ),
           const SizedBox(height: 8),

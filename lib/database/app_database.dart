@@ -23,7 +23,7 @@ class AppDatabase {
     final path = join(dbPath, filePath);
     return await openDatabase(
       path,
-      version: 4, // Incrementa versão para adicionar forma_pagamento
+      version: 5, // Incrementa versão para corrigir timezone
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -37,7 +37,7 @@ class AppDatabase {
         valor REAL NOT NULL DEFAULT 0,
         icon VARCHAR(50) DEFAULT 'local_activity',
         active INTEGER NOT NULL DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at DATETIME DEFAULT (datetime('now', 'localtime'))
       )
     ''');
     await db.execute('''
@@ -48,7 +48,7 @@ class AppDatabase {
         valor_unitario REAL NOT NULL DEFAULT 0,
         txid VARCHAR(255), -- ID da transação Pix
         forma_pagamento VARCHAR(50), -- Forma de pagamento: 'pix' ou 'dinheiro'
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT (datetime('now', 'localtime')),
         FOREIGN KEY(ticket_id) REFERENCES tickets(id)
       )
     ''');
@@ -56,7 +56,7 @@ class AppDatabase {
       CREATE TABLE Pedidos (
         id_pedido INTEGER PRIMARY KEY AUTOINCREMENT,
         id_usuario INTEGER NOT NULL,
-        data_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
+        data_pedido DATETIME DEFAULT (datetime('now', 'localtime')),
         status VARCHAR(50) DEFAULT 'Pendente',
         FOREIGN KEY(id_usuario) REFERENCES Usuarios(id_usuario)
       )
@@ -126,6 +126,14 @@ class AppDatabase {
       } catch (e) {
         print('Erro ao verificar/adicionar coluna forma_pagamento na v4: $e');
       }
+    }
+    
+    // Versão 5: Correção de timezone (apenas afeta novos registros)
+    // O DEFAULT datetime('now', 'localtime') será aplicado automaticamente para novos inserts
+    // Para registros existentes, o DATE() nas queries já usa o valor salvo
+    if (oldVersion < 5) {
+      print('Upgrade para v5: Timezone corrigido para novos registros (usando localtime)');
+      print('Nota: Registros antigos mantêm suas datas originais');
     }
   }
 

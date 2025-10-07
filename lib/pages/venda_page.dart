@@ -360,6 +360,10 @@ class _VendaPageState extends State<VendaPage> {
     final fonteValor = fontes[1];
     final fonteHora = fontes[2];
     
+    // Obter timestamp atual em horário local (formato SQLite)
+    final agora = now.toIso8601String().substring(0, 19).replaceAll('T', ' ');
+    print('[VENDA] Data/hora da venda: $agora (horário local)');
+    
     // Inserir vendas no banco com txid e forma de pagamento
     for (var ticket in selected) {
       final qtd = quantities[ticket['id']] ?? 0;
@@ -372,8 +376,9 @@ class _VendaPageState extends State<VendaPage> {
           'valor_unitario': valorUnitario,
           'txid': vendaTxid, // Salvar o txid da transação
           'forma_pagamento': formaPagamento, // Salvar forma de pagamento
-          // created_at será preenchido automaticamente
+          'created_at': agora, // Inserir explicitamente horário local
         });
+        print('[VENDA] Venda inserida: ${ticket['description']} x$qtd, created_at: $agora');
       } catch (e) {
         print('Erro ao inserir com txid e forma_pagamento: $e');
         // Fallback: inserir sem txid se der erro
@@ -382,7 +387,7 @@ class _VendaPageState extends State<VendaPage> {
           'amount': qtd,
           'valor_unitario': valorUnitario,
           'forma_pagamento': formaPagamento, // Salvar forma de pagamento
-          // created_at será preenchido automaticamente
+          'created_at': agora, // Inserir explicitamente horário local
         });
         print('Venda inserida sem txid como fallback');
       }

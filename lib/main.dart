@@ -108,15 +108,23 @@ class _MyHomePageState extends State<MyHomePage> {
     final db = await AppDatabase.instance.database;
     // Buscar todas as datas distintas com vendas
     final datasResult = await db.rawQuery('''
-      SELECT DISTINCT DATE(created_at) as data
+      SELECT DISTINCT DATE(created_at) as data, created_at
       FROM vendas
       ORDER BY data DESC
     ''');
+    
+    // Debug: mostrar o que o banco está retornando
+    print('[RELATORIO] === Datas no banco ===');
+    for (var row in datasResult) {
+      print('[RELATORIO] data: ${row['data']}, created_at: ${row['created_at']}');
+    }
+    print('[RELATORIO] ========================');
+    
     if (datasResult.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma venda encontrada.')));
       return;
     }
-    List<String> datas = datasResult.map((row) => row['data'] as String).toList();
+    List<String> datas = datasResult.map((row) => row['data'] as String).toList().toSet().toList();
     List<String> selecionadas = [];
 
     // Exibir modal de seleção
